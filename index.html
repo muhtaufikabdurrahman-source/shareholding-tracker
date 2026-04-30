@@ -214,7 +214,15 @@
 <div class="app">
   <div class="header">
     <div>
-      <h1>Shareholding Tracker</h1>
+      <h1>
+        Shareholding Tracker
+        <span class="founder">
+          | Founder 
+          <a href="https://instagram.com/muhtaufikrahman" target="_blank">
+            @muhtaufikrahman
+          </a> (IG)
+        </span>
+      </h1>
     </div>
   </div>
 
@@ -533,10 +541,14 @@ function loadCSVText(text) {
   }).filter(r => r['Investor Name'] && r['Share Code']);
   document.getElementById('mainContent').style.display = 'block';
   uploadZone.style.display = 'none';
+  _isFirstRender = true;
   ovBuildCache();
   populateFilters();
-  render();
-  buildGDBGraph();
+  // Defer heavy graph builds so browser can paint the UI first
+  setTimeout(() => {
+    render();
+    setTimeout(() => buildGDBGraph(), 0);
+  }, 0);
 }
 
 function autoLoadCSV() {
@@ -624,11 +636,18 @@ function totalPctLatest(edgeList, shareCode) {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
+let _ovRendered = false;
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-'+tab));
   if (tab === 'graphdb') {
     setTimeout(() => { buildGDBGraph(); }, 50);
+  } else if (tab === 'overview') {
+    // Only re-render if canvas has no content yet (e.g. user switched away before first render)
+    const canvas = document.getElementById('graphCanvas');
+    if (canvas && (canvas.width === 0 || !_ovRendered) && allData.length) {
+      setTimeout(() => render(), 0);
+    }
   }
 }
 
@@ -738,10 +757,13 @@ function getFiltered() {
   });
 }
 
+let _isFirstRender = true;
 function render() {
   const data = getFiltered();
   updateStats(data);
-  buildGraph(data);
+  buildGraph(data, _isFirstRender);
+  _isFirstRender = false;
+  _ovRendered = true;
   buildTable(data);
 }
 
@@ -781,7 +803,7 @@ function calcDynamicSizes(numInvestors, numCompanies) {
 }
 
 // ===== OVERVIEW GRAPH =====
-function buildGraph(data) {
+function buildGraph(data, isFirstLoad) {
   const canvas = document.getElementById('graphCanvas');
   const area = document.getElementById('graphArea');
   const W = area.clientWidth || 860;
@@ -804,8 +826,24 @@ function buildGraph(data) {
   const q = document.getElementById('searchInput').value.trim();
   const sh2active = document.getElementById('shareFilter').value;
   let investors, companies;
+  const SHARE_FILTER_LIMIT = 20; // max investor nodes when share filter active
   if (q || sh2active) {
-    investors = visibleInvestorNames;
+    if (sh2active && !q) {
+      // Sort investors by their % holding in the filtered share (largest first), limit to 20
+      const latestDt = getLatestDate();
+      const pctByInv = {};
+      allData.filter(r => r['Share Code'] === sh2active).forEach(r => {
+        const pct = parseFloat(r['Percentage']) || 0;
+        if (!pctByInv[r['Investor Name']] || pct > pctByInv[r['Investor Name']]) {
+          pctByInv[r['Investor Name']] = pct;
+        }
+      });
+      investors = visibleInvestorNames
+        .sort((a, b) => (pctByInv[b] || 0) - (pctByInv[a] || 0))
+        .slice(0, SHARE_FILTER_LIMIT);
+    } else {
+      investors = visibleInvestorNames;
+    }
     companies = allCompanies;
   } else {
     // Pick 25 random investors from the visible set using the seeded random pool
@@ -878,8 +916,13 @@ function buildGraph(data) {
     }
     const addedEdgeKeys = new Set(edges.map(e=>`${e.from}|${e.to}|${e.date}`));
 
-    // Step 1: All investors holding the filtered share
-    allData.filter(r=>r['Share Code']===sh2).forEach(r=>{
+    // Step 1: Top investors holding the filtered share (limited, sorted by %)
+    const _sh2rows = allData.filter(r=>r['Share Code']===sh2);
+    // Pick top investors by max % (same limit as above)
+    const _sh2pct = {};
+    _sh2rows.forEach(r=>{ const p=parseFloat(r['Percentage'])||0; if(!_sh2pct[r['Investor Name']]||p>_sh2pct[r['Investor Name']]) _sh2pct[r['Investor Name']]=p; });
+    const _sh2topInv = new Set(Object.entries(_sh2pct).sort((a,b)=>b[1]-a[1]).slice(0,SHARE_FILTER_LIMIT).map(e=>e[0]));
+    _sh2rows.filter(r=>_sh2topInv.has(r['Investor Name'])).forEach(r=>{
       ensureInvestor(r['Investor Name']);
       addEdgeIfMissing(r['Investor Name'], sh2, r['Date']);
     });
@@ -1456,7 +1499,9 @@ function buildGraph(data) {
       });
     }
   }
-  preSettle(60);
+  // On first load: skip blocking preSettle — let animation loop settle naturally (non-blocking).
+  // On re-filter: run 10 frames to snap layout quickly.
+  if (isFirstLoad === false) preSettle(10);
 
   // ── Animation loop: runs while physics is active OR drag is ongoing ──
   function loop(){
@@ -2067,8 +2112,7 @@ function buildTable(data){
 let _searchDebounce;
 let _renderDebounce;
 function debouncedRender(){
-  clearTimeout(_renderDebounce);
-  _renderDebounce=setTimeout(render, 150);
+  render();
 }
 document.getElementById('searchInput').oninput=function(){
   const val = this.value;
@@ -2156,7 +2200,7 @@ function buildGDBGraph(sourceData) {
   }
 
   gdbNodes = [];
-  // Lay out in circular clusters
+  // ── Radial layout: one center node, all others on surrounding ring(s) ──
   const cx = W / 2, cy = H / 2;
 
   // ── Detect hybrid nodes (investor whose name matches an issuer) ──
@@ -2183,49 +2227,105 @@ function buildGDBGraph(sourceData) {
   // Hybrid entries (unique by share code, limited to those in our node budget)
   const hybridEntries = Object.entries(hybridMap).filter(([inv]) => investorNames.includes(inv) || companyNames.includes(hybridMap[inv]));
 
-  // Investors on inner ring
-  pureInvestorNames.forEach((name, i) => {
-    const angle = (i / Math.max(pureInvestorNames.length, 1)) * Math.PI * 2;
-    const radius = Math.min(W, H) * 0.28;
-    const maxPct = investorMap[name].maxPct;
-    const nr = Math.max(10, Math.min(32, maxPct * 1.4));
-    gdbNodes.push({
-      id: 'inv_' + name, label: name, fullLabel: name, type: 'investor',
-      x: cx + Math.cos(angle) * radius + (Math.random() - 0.5) * 30,
-      y: cy + Math.sin(angle) * radius + (Math.random() - 0.5) * 30,
-      vx: 0, vy: 0, r: nr, maxPct, shares: [...investorMap[name].shares]
-    });
+  // ── Determine center node: most connections ──
+  // Count edges per node-id (pre-calculate from data)
+  const edgeCount = {};
+  data.forEach(r => {
+    const invId = hybridInvNames.has(r['Investor Name'])
+      ? 'comp_' + hybridMap[r['Investor Name']]
+      : 'inv_' + r['Investor Name'];
+    const compId = 'comp_' + r['Share Code'];
+    edgeCount[invId] = (edgeCount[invId] || 0) + 1;
+    edgeCount[compId] = (edgeCount[compId] || 0) + 1;
   });
 
-  // Companies on outer ring
-  pureCompanyNames.forEach((sh, i) => {
-    const angle = (i / Math.max(pureCompanyNames.length, 1)) * Math.PI * 2 + Math.PI / Math.max(pureCompanyNames.length, 1);
-    const radius = Math.min(W, H) * 0.42;
-    gdbNodes.push({
-      id: 'comp_' + sh, label: sh, fullLabel: sh, type: 'company',
-      x: cx + Math.cos(angle) * radius + (Math.random() - 0.5) * 20,
-      y: cy + Math.sin(angle) * radius + (Math.random() - 0.5) * 20,
-      vx: 0, vy: 0, r: 16, issuer: companyMap[sh].issuer
-    });
+  // Find node-id with most connections across all node types
+  let centerNodeId = null, bestCount = -1;
+  pureInvestorNames.forEach(name => {
+    const id = 'inv_' + name;
+    if ((edgeCount[id] || 0) > bestCount) { bestCount = edgeCount[id] || 0; centerNodeId = id; }
+  });
+  pureCompanyNames.forEach(sh => {
+    const id = 'comp_' + sh;
+    if ((edgeCount[id] || 0) > bestCount) { bestCount = edgeCount[id] || 0; centerNodeId = id; }
+  });
+  hybridEntries.forEach(([invName, shareCode]) => {
+    const id = 'comp_' + shareCode;
+    if ((edgeCount[id] || 0) > bestCount) { bestCount = edgeCount[id] || 0; centerNodeId = id; }
   });
 
-  // Hybrid nodes at mid-radius, spread around center
-  hybridEntries.forEach(([invName, shareCode], i) => {
-    const angle = (i / Math.max(hybridEntries.length, 1)) * Math.PI * 2 + Math.PI / 4;
-    const radius = Math.min(W, H) * 0.34;
-    const maxPct = investorMap[invName]?.maxPct || 0;
-    const nr = Math.max(14, Math.min(32, 14 + (maxPct / 100) * 24));
-    const issuer = companyMap[shareCode]?.issuer || '';
+  // Build all non-center nodes list in order: investors → companies → hybrids
+  const nonCenterNodes = [];
+  pureInvestorNames.forEach(name => {
+    const id = 'inv_' + name;
+    if (id !== centerNodeId) nonCenterNodes.push({ id, name, type: 'investor' });
+  });
+  pureCompanyNames.forEach(sh => {
+    const id = 'comp_' + sh;
+    if (id !== centerNodeId) nonCenterNodes.push({ id, name: sh, type: 'company' });
+  });
+  hybridEntries.forEach(([invName, shareCode]) => {
+    const id = 'comp_' + shareCode;
+    if (id !== centerNodeId) nonCenterNodes.push({ id, name: shareCode, type: 'hybrid', invName });
+  });
+
+  const radialRadius = Math.min(W, H) * 0.38;
+  const centerR = 28; // center node is larger
+
+  // Place center node
+  if (centerNodeId) {
+    const isInv = centerNodeId.startsWith('inv_');
+    const isHybrid = hybridEntries.find(([inv, sh]) => 'comp_' + sh === centerNodeId);
+    const centerName = isInv
+      ? centerNodeId.replace('inv_', '')
+      : centerNodeId.replace('comp_', '');
+    const nodeType = isHybrid ? 'hybrid' : (isInv ? 'investor' : 'company');
+    const maxPct = isInv ? (investorMap[centerName]?.maxPct || 0)
+      : isHybrid ? (investorMap[isHybrid[0]]?.maxPct || 0) : 0;
+    const issuer = !isInv ? (companyMap[centerName]?.issuer || '') : '';
+    const shares = isInv ? [...(investorMap[centerName]?.shares || [])]
+      : isHybrid ? [...(investorMap[isHybrid[0]]?.shares || [])] : [];
     gdbNodes.push({
-      id: 'comp_' + shareCode,
-      label: shareCode, fullLabel: shareCode,
-      type: 'hybrid',
-      invName, issuer,
-      x: cx + Math.cos(angle) * radius + (Math.random() - 0.5) * 20,
-      y: cy + Math.sin(angle) * radius + (Math.random() - 0.5) * 20,
-      vx: 0, vy: 0, r: nr, maxPct,
-      shares: [...(investorMap[invName]?.shares || [])]
+      id: centerNodeId, label: centerName, fullLabel: centerName,
+      type: nodeType, isCenter: true,
+      x: cx, y: cy,
+      vx: 0, vy: 0,
+      r: centerR, maxPct, issuer, shares,
+      ...(isHybrid ? { invName: isHybrid[0] } : {})
     });
+  }
+
+  // Place all other nodes evenly around the radial ring
+  nonCenterNodes.forEach((nd, i) => {
+    const angle = (i / Math.max(nonCenterNodes.length, 1)) * Math.PI * 2 - Math.PI / 2;
+    const x = cx + Math.cos(angle) * radialRadius;
+    const y = cy + Math.sin(angle) * radialRadius;
+
+    if (nd.type === 'investor') {
+      const maxPct = investorMap[nd.name].maxPct;
+      const nr = Math.max(10, Math.min(26, maxPct * 1.2));
+      gdbNodes.push({
+        id: nd.id, label: nd.name, fullLabel: nd.name, type: 'investor',
+        x, y, vx: 0, vy: 0, r: nr, maxPct,
+        shares: [...investorMap[nd.name].shares]
+      });
+    } else if (nd.type === 'company') {
+      gdbNodes.push({
+        id: nd.id, label: nd.name, fullLabel: nd.name, type: 'company',
+        x, y, vx: 0, vy: 0, r: 15, issuer: companyMap[nd.name].issuer
+      });
+    } else {
+      // hybrid
+      const maxPct = investorMap[nd.invName]?.maxPct || 0;
+      const nr = Math.max(14, Math.min(26, 14 + (maxPct / 100) * 20));
+      const issuer = companyMap[nd.name]?.issuer || '';
+      gdbNodes.push({
+        id: nd.id, label: nd.name, fullLabel: nd.name,
+        type: 'hybrid', invName: nd.invName, issuer,
+        x, y, vx: 0, vy: 0, r: nr, maxPct,
+        shares: [...(investorMap[nd.invName]?.shares || [])]
+      });
+    }
   });
 
   gdbEdges = [];
@@ -2260,13 +2360,39 @@ function buildGDBGraph(sourceData) {
 function startGDBLoop() {
   const canvas = document.getElementById('gdbCanvas');
   const ctx = canvas.getContext('2d');
+  let settled = false;
 
   function loop() {
-    gdbLoopT += 0.016;
-    if (gdbPhysics) applyForces();
+    if (gdbPhysics) {
+      applyForces();
+      // Check if all nodes have come to rest
+      const totalKE = gdbNodes.reduce((s, n) => s + n.vx*n.vx + n.vy*n.vy, 0);
+      if (totalKE < 0.5 * gdbNodes.length) {
+        settled = true;
+      }
+      // Only animate dash offset while physics is running
+      if (!settled) gdbLoopT += 0.016;
+    }
     drawGDB(ctx, canvas.width, canvas.height);
-    gdbAnimFrame = requestAnimationFrame(loop);
+    if (!settled) {
+      gdbAnimFrame = requestAnimationFrame(loop);
+    } else {
+      gdbAnimFrame = null;
+    }
   }
+
+  // Wake physics back up on any user interaction
+  function wakeUp() {
+    settled = false;
+    if (!gdbAnimFrame) {
+      gdbAnimFrame = requestAnimationFrame(loop);
+    }
+  }
+  canvas.addEventListener('mousedown', wakeUp, { passive: true });
+  canvas.addEventListener('wheel', wakeUp, { passive: true });
+  // Also expose wakeUp globally so buildGDBGraph can call it
+  window._gdbWake = wakeUp;
+
   cancelAnimationFrame(gdbAnimFrame);
   loop();
 }
@@ -2275,7 +2401,11 @@ function applyForces() {
   const W = document.getElementById('gdbCanvas').width;
   const H = document.getElementById('gdbCanvas').height;
   const cx = W / 2, cy = H / 2;
-  const damping = 0.85, repulsion = 1800, springLen = 120, springK = 0.04, centerK = 0.008;
+  const damping = 0.72, repulsion = 1400, springLen = 160, springK = 0.03, centerK = 0.006;
+
+  // Cache node lookup for O(1) spring lookup instead of O(n) find() per edge
+  const nodeById = {};
+  gdbNodes.forEach(n => nodeById[n.id] = n);
 
   gdbNodes.forEach(n => {
     let fx = 0, fy = 0;
@@ -2288,11 +2418,11 @@ function applyForces() {
       fx += (dx / dist) * force;
       fy += (dy / dist) * force;
     });
-    // Spring attraction (edges)
+    // Spring attraction (edges) — O(1) lookup
     gdbEdges.forEach(e => {
       let other = null;
-      if (e.from === n.id) other = gdbNodes.find(m => m.id === e.to);
-      else if (e.to === n.id) other = gdbNodes.find(m => m.id === e.from);
+      if (e.from === n.id) other = nodeById[e.to];
+      else if (e.to === n.id) other = nodeById[e.from];
       if (!other) return;
       const dx = other.x - n.x, dy = other.y - n.y;
       const dist = Math.max(1, Math.sqrt(dx*dx + dy*dy));
@@ -2303,6 +2433,8 @@ function applyForces() {
     // Center gravity
     fx += (cx - n.x) * centerK;
     fy += (cy - n.y) * centerK;
+    // Center node stays fixed at canvas center
+    if (n.isCenter) { n.vx = 0; n.vy = 0; n.x = cx; n.y = cy; return; }
     n.vx = (n.vx + fx) * damping;
     n.vy = (n.vy + fy) * damping;
     if (!gdbDragging || gdbDragging.id !== n.id) {
@@ -2401,6 +2533,24 @@ function drawGDB(ctx, W, H) {
       ctx.restore();
     }
 
+    // Center node: draw outer ring indicator
+    if (n.isCenter) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r + 14, 0, Math.PI * 2);
+      ctx.strokeStyle = nodeColor + '55';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // Label "CENTER" above
+      ctx.fillStyle = nodeColor;
+      ctx.font = `700 8px 'DM Mono',monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.globalAlpha = 0.7;
+      ctx.fillText('CENTER', n.x, n.y - n.r - 16);
+      ctx.globalAlpha = 1;
+    }
+
     // Glow for selected or highlighted
     if (isSelected || isHighlighted) {
       ctx.beginPath();
@@ -2418,10 +2568,10 @@ function drawGDB(ctx, W, H) {
     }
 
     if (n.type === 'hybrid') {
-      // Off-white fill
+      // Off-white fill — same as Overview hybrid
       ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
       ctx.fillStyle = '#e8e6e0';
-      ctx.globalAlpha = isDimmed ? 0.15 : 0.92; ctx.fill(); ctx.globalAlpha = 1;
+      ctx.globalAlpha = isDimmed ? 0.18 : 0.92; ctx.fill(); ctx.globalAlpha = 1;
       // Inner ring
       ctx.beginPath(); ctx.arc(n.x, n.y, n.r - 3, 0, Math.PI * 2);
       ctx.strokeStyle = '#0d0f1430'; ctx.lineWidth = 1.5;
@@ -2430,31 +2580,47 @@ function drawGDB(ctx, W, H) {
       ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
       ctx.strokeStyle = isSelected ? '#e8e6e0' : '#e8e6e070';
       ctx.lineWidth = isSelected ? 2.5 : 2;
-      ctx.globalAlpha = isDimmed ? 0.15 : 1; ctx.stroke(); ctx.globalAlpha = 1;
-      // Initials
+      ctx.globalAlpha = isDimmed ? 0.18 : 1; ctx.stroke(); ctx.globalAlpha = 1;
+      // Initials — 4 chars
       const innerSize = Math.max(8, Math.min(n.r * 0.52, 13));
       ctx.font = `700 ${innerSize}px 'DM Mono',monospace`;
       ctx.fillStyle = '#1a1c24'; ctx.globalAlpha = isDimmed ? 0 : 0.85;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(n.label.slice(0, 3), n.x, n.y); ctx.globalAlpha = 1;
+      ctx.fillText(n.label.slice(0, 4), n.x, n.y); ctx.globalAlpha = 1;
+    } else if (n.type === 'indirect') {
+      // Indirect ownership: dashed pink circle (same as Overview cross/indirect node)
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      ctx.fillStyle = '#ff6b9d'; ctx.globalAlpha = isDimmed ? 0.05 : 0.15; ctx.fill(); ctx.globalAlpha = 1;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      ctx.strokeStyle = isSelected ? '#ff6b9d' : isHovered ? '#ff6b9dcc' : '#ff6b9d88';
+      ctx.lineWidth = isSelected ? 2.5 : 1.5;
+      ctx.globalAlpha = isDimmed ? 0.2 : 1; ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.setLineDash([]);
+      const innerSize = Math.max(8, Math.min(n.r * 0.5, 13));
+      ctx.font = `700 ${innerSize}px 'DM Mono',monospace`;
+      ctx.fillStyle = '#ff6b9d'; ctx.globalAlpha = isDimmed ? 0 : 0.8;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(n.label.slice(0, 4), n.x, n.y); ctx.globalAlpha = 1;
     } else {
+      // investor (amber) or company (teal)
       ctx.beginPath();
       ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
       ctx.fillStyle = nodeColor;
-      ctx.globalAlpha = isDimmed ? 0.15 : (isSelected ? 1 : 0.85);
+      ctx.globalAlpha = isDimmed ? 0.18 : (isSelected ? 1 : 0.88);
       ctx.fill();
-      ctx.strokeStyle = isSelected ? nodeColor : (isExpanded ? nodeColor + 'cc' : nodeColor + '60');
+      ctx.strokeStyle = isSelected ? nodeColor : isHovered ? nodeColor + '99' : nodeColor + '55';
       ctx.lineWidth = isSelected ? 2.5 : (isExpanded ? 2 : 1.5);
-      ctx.globalAlpha = isDimmed ? 0.15 : 1;
+      ctx.globalAlpha = isDimmed ? 0.18 : 1;
       ctx.stroke();
       ctx.globalAlpha = 1;
-      // Initials inside
+      // Initials inside — investor: up to 3 word initials, company: 4 chars
       const initials = n.type === 'investor'
-        ? n.fullLabel.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()
-        : n.label.slice(0,3);
+        ? n.fullLabel.split(' ').slice(0, 3).map(w => w[0]).join('').toUpperCase()
+        : n.label.slice(0, 4);
       const innerSize = Math.max(8, Math.min(n.r * 0.5, 13));
       ctx.font = `700 ${innerSize}px 'DM Mono',monospace`;
-      ctx.fillStyle = '#0d0f14'; ctx.globalAlpha = isDimmed ? 0 : 0.7;
+      ctx.fillStyle = '#0d0f14'; ctx.globalAlpha = isDimmed ? 0 : 0.75;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(initials, n.x, n.y); ctx.globalAlpha = 1;
     }
@@ -2462,16 +2628,15 @@ function drawGDB(ctx, W, H) {
     // Label below node
     if (showLabels) {
       const lbl = n.label.length > 12 ? n.label.slice(0, 12) + '…' : n.label;
-      ctx.fillStyle = n.type === 'hybrid' ? (isDimmed ? '#6b7280' : '#e8e6e0') : (isDimmed ? '#6b7280' : '#e8eaf0');
-      ctx.font = `${isSelected ? '600' : '500'} 10px 'DM Mono',monospace`;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillText(lbl, n.x, n.y + n.r + 3);
-      // Sub-label for hybrid
-      if (n.type === 'hybrid' && !isDimmed) {
-        ctx.font = `400 8.5px 'DM Mono',monospace`;
-        ctx.fillStyle = '#9ca3af';
-        ctx.fillText('hybrid', n.x, n.y + n.r + 14);
+      // Skip below-label for company nodes with short code (≤4 chars) — already visible inside circle
+      const skipLabel = (n.type === 'company' && n.label.length <= 4) || n.type === 'hybrid';
+      if (!skipLabel) {
+        ctx.fillStyle = n.type === 'hybrid' ? (isDimmed ? '#6b7280' : '#e8e6e0') : (isDimmed ? '#6b7280' : '#e8eaf0');
+        ctx.font = `${isSelected ? '600' : '500'} 10px 'DM Mono',monospace`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        ctx.fillText(lbl, n.x, n.y + n.r + 3);
       }
+
     }
   });
 
@@ -2610,6 +2775,7 @@ function getDateInfo() {
 }
 
 function expandNode(node) {
+  if (window._gdbWake) window._gdbWake();
   const { febDate } = getDateInfo();
   const canvas = document.getElementById('gdbCanvas');
   const W = canvas.width, H = canvas.height;
@@ -2780,6 +2946,7 @@ function expandNode(node) {
 }
 
 function collapseNode(node) {
+  if (window._gdbWake) window._gdbWake();
   // Remove nodes that were expanded BY this node and have no other parent in graph
   const toRemove = new Set();
   gdbNodes.forEach(n => {
@@ -3021,6 +3188,7 @@ function addGDBNameTag(name) {
 function removeGDBNameTag(name) {
   gdbFilterNameSet.delete(name);
   renderGDBNameTags();
+  buildGDBGraph();
 }
 
 function renderGDBNameTags() {
@@ -3050,11 +3218,13 @@ function addGDBShareTag(code) {
   document.getElementById('gdbFilterShare').value = '';
   document.getElementById('gdbFilterShareDd').classList.remove('open');
   renderGDBShareTags();
+  buildGDBGraph();
 }
 
 function removeGDBShareTag(code) {
   gdbFilterShareSet.delete(code);
   renderGDBShareTags();
+  buildGDBGraph();
 }
 
 function renderGDBShareTags() {
