@@ -3182,7 +3182,7 @@ function clearGDBSelection() {
   document.getElementById('gdbStatus').textContent = '— node dipilih';
   document.getElementById('gdbNodeInfo').style.display = 'none';
 }
-</script>
+<script>
 async function loadCSV() {
   try {
     const response = await fetch('data.csv');
@@ -3200,9 +3200,7 @@ async function loadCSV() {
 
     console.log("CSV DATA:", data);
 
-    // 🔥 CONTOH TAMPILKAN DATA
     const container = document.createElement('div');
-    container.style.padding = "20px";
     container.innerHTML = "<h2>Data CSV</h2><pre>" + JSON.stringify(data, null, 2) + "</pre>";
     document.body.appendChild(container);
 
@@ -3213,4 +3211,5 @@ async function loadCSV() {
 }
 
 window.onload = loadCSV;
+
 </script>
