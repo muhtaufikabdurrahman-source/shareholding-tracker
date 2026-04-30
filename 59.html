@@ -1,0 +1,3109 @@
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0;}
+  :root{
+    --bg:#0d0f14;--surface:#161920;--surface2:#1e2230;--border:#2a2f3e;
+    --teal:#00d4aa;--purple:#8b7fff;--amber:#f5a623;--red:#ff5e5e;--pink:#ff6b9d;--blue:#4fa3ff;
+    --text:#e8eaf0;--muted:#6b7280;--font:'Syne',sans-serif;--mono:'DM Mono',monospace;
+  }
+  body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;}
+  .app{padding:20px;max-width:1200px;margin:0 auto;}
+  .header{margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;}
+  .header h1{font-size:22px;font-weight:700;letter-spacing:-0.5px;color:var(--text);}
+  .header p{font-size:13px;color:var(--muted);margin-top:4px;}
+  .upload-zone{border:1.5px dashed var(--border);border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;background:var(--surface);margin-bottom:20px;}
+  .upload-zone:hover{border-color:var(--teal);background:var(--surface2);}
+  .upload-zone.drag{border-color:var(--teal);background:var(--surface2);}
+  .upload-icon{width:36px;height:36px;margin:0 auto 10px;opacity:.5;display:flex;align-items:center;justify-content:center;}
+  .upload-icon svg{width:36px;height:36px;stroke:var(--teal);}
+  .upload-zone p{font-size:13px;color:var(--muted);}
+  .upload-zone strong{color:var(--teal);font-weight:600;}
+  #fileInput{display:none;}
+
+  /* Tabs */
+  .tabs{display:flex;gap:2px;margin-bottom:20px;background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:4px;}
+  .tab-btn{flex:1;padding:9px 16px;border:none;background:none;color:var(--muted);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;border-radius:7px;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:7px;}
+  .tab-btn.active{background:var(--surface2);color:var(--text);border:0.5px solid var(--border);}
+  .tab-btn:hover:not(.active){color:var(--text);}
+  .tab-icon{font-size:15px;}
+  .tab-content{display:none;}
+  .tab-content.active{display:block;}
+
+  .controls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;}
+  .ctrl-group{display:flex;flex-direction:column;gap:5px;}
+  .ctrl-group label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-family:var(--mono);}
+  .ctrl-group input,.ctrl-group select{background:var(--surface);border:0.5px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;font-family:var(--font);outline:none;transition:border-color .2s;}
+  .ctrl-group input:focus,.ctrl-group select:focus{border-color:var(--teal);}
+  .ctrl-group select option{background:var(--surface2);}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;}
+  .stat{background:var(--surface);border:0.5px solid var(--border);border-radius:8px;padding:7px 10px;}
+  .stat .val{font-size:16px;font-weight:700;font-family:var(--mono);color:var(--text);}
+  .stat .lbl{font-size:10px;color:var(--muted);margin-top:1px;}
+
+  /* Graph + detail panel side by side */
+  .graph-layout{display:flex;flex-direction:column;gap:12px;margin-bottom:20px;}
+  .graph-area{background:var(--surface);border:0.5px solid var(--border);border-radius:12px;overflow:hidden;position:relative;}
+  .graph-area canvas{display:block;width:100%;cursor:default;}
+  .graph-area canvas.hovering{cursor:grab;}
+  .graph-area canvas.panning{cursor:grabbing;}
+  .legend{display:flex;gap:20px;padding:10px 16px;border-top:0.5px solid var(--border);background:var(--surface2);}
+  .legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);}
+  .legend-dot{width:10px;height:3px;border-radius:2px;}
+
+  /* Detail panel */
+  .detail-panel{width:100%;background:var(--surface);border:0.5px solid var(--border);border-radius:12px;overflow:hidden;display:none;flex-direction:column;}
+  .detail-panel.visible{display:flex;}
+  .dp-content-row{display:block;}
+  .dp-props-col{display:none;}
+  .dp-charts-col{padding:14px 16px;overflow-x:auto;}
+  .dp-stat-badge{display:inline-flex;align-items:center;gap:4px;background:var(--surface2);border:0.5px solid var(--border);border-radius:20px;padding:2px 9px;font-size:11px;font-family:var(--mono);color:var(--muted);margin-top:5px;}
+  .dp-stat-badge .dp-stat-val{color:var(--text);font-weight:700;margin-right:2px;}
+  .dp-header{padding:14px 16px 12px;border-bottom:0.5px solid var(--border);background:var(--surface2);display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+  .dp-node-badge{display:flex;align-items:center;gap:10px;}
+  .dp-dot{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#000;}
+  .dp-dot.investor{background:var(--amber);}
+  .dp-dot.company{background:var(--teal);}
+  .dp-dot.hybrid{background:#e8e6e0;}
+  .dp-title{font-size:13px;font-weight:700;color:var(--text);word-break:break-word;line-height:1.4;}
+  .dp-type{font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.6px;margin-top:2px;}
+  .dp-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;flex-shrink:0;padding:0 2px;}
+  .dp-close:hover{color:var(--text);}
+  .dp-body{flex:1;overflow-y:auto;}
+  .dp-section-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;font-family:var(--mono);margin-bottom:8px;}
+  .dp-prop{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border);}
+  .dp-prop:last-child{border-bottom:none;}
+  .dp-prop-key{font-size:11px;color:var(--muted);font-family:var(--mono);}
+  .dp-prop-val{font-size:12px;color:var(--text);font-weight:600;text-align:right;word-break:break-word;}
+  .dp-connections{display:flex;flex-direction:column;gap:6px;margin-top:12px;}
+  .dp-conn-item{background:var(--surface2);border:0.5px solid var(--border);border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:border-color .15s,background .15s;}
+  .dp-conn-item:hover{border-color:var(--teal);background:#00d4aa0a;}
+  .dp-conn-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .dp-conn-dot.investor{background:var(--amber);}
+  .dp-conn-dot.company{background:var(--teal);}
+  .dp-conn-info{flex:1;min-width:0;}
+  .dp-conn-name{font-size:11px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .dp-conn-meta{font-size:10px;color:var(--muted);font-family:var(--mono);}
+  .dp-conn-arrow{font-size:10px;color:var(--muted);}
+  .dp-edge-badge{display:inline-block;font-size:9px;font-family:var(--mono);padding:1px 5px;border-radius:10px;margin-right:3px;}
+  .dp-edge-badge.feb{background:rgba(0,212,170,.15);color:var(--teal);}
+  .dp-edge-badge.mar{background:rgba(139,127,255,.15);color:var(--purple);}
+  .graph-hint{position:absolute;bottom:44px;left:12px;font-size:10px;color:var(--muted);font-family:var(--mono);pointer-events:none;opacity:.7;}
+  .graph-tooltip{position:absolute;background:var(--surface2);border:0.5px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;pointer-events:none;display:none;z-index:10;}
+  .graph-tooltip .t-name{font-weight:600;color:var(--text);margin-bottom:3px;}
+  .graph-tooltip .t-detail{color:var(--muted);}
+
+  .table-wrap{background:var(--surface);border:0.5px solid var(--border);border-radius:12px;overflow:hidden;}
+  .table-head{display:grid;grid-template-columns:2fr 1.2fr 1fr 1fr 80px;padding:10px 16px;background:var(--surface2);border-bottom:0.5px solid var(--border);}
+  .table-head span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;font-family:var(--mono);}
+  .table-body{max-height:320px;overflow-y:auto;}
+  .table-row{display:grid;grid-template-columns:2fr 1.2fr 1fr 1fr 80px;padding:10px 16px;border-bottom:0.5px solid var(--border);transition:background .15s;align-items:center;}
+  .table-row:hover{background:var(--surface2);}
+  .table-row.highlighted{background:#00d4aa0d;border-left:2px solid var(--teal);}
+  .table-row:last-child{border-bottom:none;}
+  .investor-name{font-size:13px;font-weight:600;color:var(--text);}
+  .share-code{font-family:var(--mono);font-size:12px;color:var(--teal);}
+  .date-pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;font-family:var(--mono);}
+  .date-feb{background:rgba(0,212,170,.12);color:var(--teal);}
+  .date-mar{background:rgba(139,127,255,.12);color:var(--purple);}
+  .pct{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--text);}
+  .change{font-family:var(--mono);font-size:12px;}
+  .change.up{color:var(--teal);}
+  .change.down{color:var(--red);}
+  .change.same{color:var(--muted);}
+  .empty{padding:48px;text-align:center;color:var(--muted);font-size:13px;}
+
+  /* ========== GRAPH DATABASE TAB ========== */
+  .gdb-layout{display:grid;grid-template-columns:300px 1fr;gap:12px;align-items:start;}
+  .gdb-sidebar{display:flex;flex-direction:column;gap:10px;}
+
+  .gdb-panel{background:var(--surface);border:0.5px solid var(--border);border-radius:12px;overflow:hidden;}
+  .gdb-panel-header{padding:12px 14px;background:var(--surface2);border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:8px;}
+  .gdb-panel-title{font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.6px;font-family:var(--mono);}
+  .gdb-panel-body{padding:12px 14px;}
+
+  .gdb-search-row{display:flex;gap:6px;margin-bottom:8px;}
+  .gdb-input{background:var(--surface2);border:0.5px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-size:12px;font-family:var(--font);outline:none;width:100%;transition:border-color .2s;}
+  .gdb-input:focus{border-color:var(--teal);}
+  .gdb-btn{background:var(--teal);color:#000;border:none;border-radius:7px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:var(--font);transition:opacity .2s;}
+  .gdb-btn:hover{opacity:.85;}
+  .gdb-btn.secondary{background:var(--surface2);color:var(--text);border:0.5px solid var(--border);}
+  .gdb-btn.secondary:hover{border-color:var(--teal);color:var(--teal);}
+  .gdb-btn.danger{background:#ff5e5e22;color:var(--red);border:0.5px solid var(--red);}
+
+  .gdb-autocomplete{position:relative;}
+  .gdb-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:0.5px solid var(--border);border-radius:8px;z-index:20;max-height:160px;overflow-y:auto;margin-top:2px;display:none;}
+  .gdb-dropdown.open{display:block;}
+  .gdb-dd-item{padding:7px 10px;font-size:12px;cursor:pointer;border-bottom:0.5px solid var(--border);}
+  .gdb-dd-item:last-child{border-bottom:none;}
+  .gdb-dd-item:hover{background:#00d4aa10;color:var(--teal);}
+  .gdb-dd-item .dd-type{font-size:10px;color:var(--muted);font-family:var(--mono);margin-left:5px;}
+
+  .gdb-result-section{margin-top:10px;}
+  .gdb-result-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;font-family:var(--mono);margin-bottom:6px;}
+  .gdb-result-list{display:flex;flex-direction:column;gap:5px;max-height:180px;overflow-y:auto;}
+  .gdb-result-item{background:var(--surface2);border:0.5px solid var(--border);border-radius:7px;padding:7px 10px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:all .15s;}
+  .gdb-result-item:hover{border-color:var(--teal);background:#00d4aa0a;}
+  .gdb-result-item.active-node{border-color:var(--amber);background:#f5a62308;}
+  .gdb-ri-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .gdb-ri-dot.investor{background:var(--amber);}
+  .gdb-ri-dot.company{background:var(--teal);}
+  .gdb-ri-name{font-size:11px;font-weight:600;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .gdb-ri-badge{font-size:10px;font-family:var(--mono);color:var(--muted);}
+
+  /* Path finding result */
+  .path-result{margin-top:10px;}
+  .path-chain{display:flex;flex-direction:column;gap:4px;}
+  .path-step{display:flex;align-items:center;gap:6px;}
+  .path-node-chip{background:var(--surface2);border:0.5px solid var(--border);border-radius:6px;padding:4px 8px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;}
+  .path-node-chip:hover{border-color:var(--teal);}
+  .path-node-chip.investor{border-color:#f5a62340;color:var(--amber);}
+  .path-node-chip.company{border-color:#00d4aa40;color:var(--teal);}
+  .path-arrow{font-size:12px;color:var(--muted);}
+  .path-edge-label{font-size:9px;font-family:var(--mono);color:var(--muted);}
+  .no-path{font-size:12px;color:var(--red);font-family:var(--mono);}
+
+  /* Co-investor panel */
+  .coinvestor-item{background:var(--surface2);border:0.5px solid var(--border);border-radius:8px;padding:9px 11px;margin-bottom:6px;cursor:pointer;transition:all .15s;}
+  .coinvestor-item:hover{border-color:var(--purple);background:#8b7fff08;}
+  .coinvestor-name{font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px;}
+  .coinvestor-shares{display:flex;flex-wrap:wrap;gap:4px;}
+  .coinvestor-share-tag{font-size:10px;font-family:var(--mono);background:#00d4aa15;color:var(--teal);padding:2px 7px;border-radius:10px;}
+
+  /* Main graph database canvas */
+  .gdb-canvas-wrap{background:var(--surface);border:0.5px solid var(--border);border-radius:12px;overflow:hidden;position:relative;}
+  .gdb-canvas-wrap canvas{display:block;width:100%;cursor:grab;}
+  .gdb-canvas-wrap canvas.panning{cursor:grabbing;}
+  .gdb-canvas-wrap canvas.hovering{cursor:pointer;}
+
+  .gdb-graph-controls{position:absolute;top:10px;right:10px;display:flex;flex-direction:column;gap:5px;z-index:5;}
+  .gdb-ctrl-btn{background:var(--surface2);border:0.5px solid var(--border);border-radius:7px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:14px;transition:all .15s;}
+  .gdb-ctrl-btn:hover{border-color:var(--teal);color:var(--teal);}
+
+  .gdb-legend{padding:8px 14px;border-top:0.5px solid var(--border);background:var(--surface2);display:flex;gap:16px;flex-wrap:wrap;align-items:center;}
+  .gdb-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);}
+  .gdb-legend-dot{width:9px;height:9px;border-radius:50%;}
+  .gdb-legend-line{width:14px;height:2px;border-radius:1px;}
+
+  .gdb-graph-hint{position:absolute;bottom:40px;left:12px;font-size:10px;color:var(--muted);font-family:var(--mono);pointer-events:none;opacity:.7;line-height:1.6;}
+
+  /* Status bar */
+  .gdb-status{position:absolute;top:10px;left:12px;background:var(--surface2);border:0.5px solid var(--border);border-radius:7px;padding:4px 10px;font-size:10px;font-family:var(--mono);color:var(--muted);pointer-events:none;z-index:5;}
+
+  .mode-toggle{display:flex;gap:5px;margin-bottom:10px;}
+  .mode-btn{flex:1;padding:6px;background:var(--surface2);border:0.5px solid var(--border);border-radius:6px;color:var(--muted);font-size:11px;cursor:pointer;text-align:center;font-family:var(--mono);transition:all .15s;}
+  .mode-btn.active{background:#00d4aa15;border-color:var(--teal);color:var(--teal);}
+
+  .separator{height:0.5px;background:var(--border);margin:10px 0;}
+
+  /* Ownership History Chart */
+  .oh-wrap{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .oh-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .oh-title{font-size:11px;font-weight:700;color:var(--text);font-family:var(--mono);}
+  .oh-subtitle{font-size:10px;color:var(--muted);font-family:var(--mono);}
+  .oh-nav{display:flex;gap:4px;}
+  .oh-nav-btn{background:var(--surface2);border:0.5px solid var(--border);border-radius:5px;padding:2px 7px;font-size:10px;color:var(--muted);cursor:pointer;font-family:var(--mono);transition:all .15s;}
+  .oh-nav-btn:hover,.oh-nav-btn.active{border-color:var(--teal);color:var(--teal);}
+  .oh-chart-area{position:relative;width:100%;height:140px;margin-bottom:4px;}
+  .oh-canvas{display:block;width:100%;height:140px;}
+  .oh-x-axis{display:flex;justify-content:space-between;padding:0 8px;margin-top:2px;}
+  .oh-x-label{font-size:9px;color:var(--muted);font-family:var(--mono);text-align:center;}
+  .oh-empty{font-size:11px;color:var(--muted);font-family:var(--mono);padding:20px 0;text-align:center;}
+</style>
+
+<div class="app">
+  <div class="header">
+    <div>
+      <h1>Shareholding Tracker</h1>
+    </div>
+  </div>
+
+  <div class="upload-zone" id="uploadZone">
+    <div class="upload-icon"><svg fill="none" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg></div>
+    <p id="uploadZoneMsg"><strong>Memuat data.csv...</strong></p>
+    <p style="margin-top:4px;font-size:11px;" id="uploadZoneSub">Mencari file data.csv di direktori yang sama</p>
+    <input type="file" id="fileInput" accept=".csv">
+  </div>
+
+  <div id="mainContent" style="display:none;">
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="overview" onclick="switchTab('overview')">
+        <span class="tab-icon">📊</span> Overview
+      </button>
+      <button class="tab-btn" data-tab="graphdb" onclick="switchTab('graphdb')">
+        <span class="tab-icon">🔗</span> Graph Database
+      </button>
+    </div>
+
+    <!-- TAB: OVERVIEW -->
+    <div class="tab-content active" id="tab-overview">
+      <div class="controls" style="align-items:start;">
+        <div class="ctrl-group">
+          <label>Cari Investor / Perusahaan</label>
+          <div style="position:relative;background:var(--surface);border:0.5px solid var(--border);border-radius:8px;padding:4px 8px;min-height:36px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;cursor:text;transition:border-color .2s;" id="ovSearchBox" onclick="document.getElementById('searchInput').focus()">
+            <div id="ovSearchTags" style="display:contents;"></div>
+            <input type="text" id="searchInput" placeholder="Ketik nama..." autocomplete="off"
+              style="border:none;background:none;outline:none;color:var(--text);font-size:13px;font-family:var(--font);flex:1;min-width:80px;padding:2px 0;"
+              onblur="setTimeout(()=>{const dd=document.getElementById('ovSearchDd');dd.classList.remove('open');dd.style.display='none';document.getElementById('ovSearchBox').style.borderColor='';},150)"
+              onfocus="document.getElementById('ovSearchBox').style.borderColor='var(--teal)'"
+              onkeydown="if(event.key==='Enter'){const v=this.value.trim();if(v)ovAddNameTag(v);}else if(event.key==='Escape'){const dd=document.getElementById('ovSearchDd');dd.classList.remove('open');dd.style.display='none';this.value='';}">
+            <div id="ovSearchDd" style="position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:0.5px solid var(--border);border-radius:8px;z-index:30;max-height:180px;overflow-y:auto;margin-top:4px;display:none;" class="gdb-dropdown"></div>
+          </div>
+        </div>
+        <div class="ctrl-group">
+          <label>Kode Saham</label>
+          <select id="shareFilter"><option value="">Semua saham</option></select>
+        </div>
+        <div class="ctrl-group">
+          <label>Tanggal</label>
+          <select id="dateFilter"></select>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><div class="val" id="stTotal">0</div><div class="lbl">Total records</div></div>
+        <div class="stat"><div class="val" id="stInvestors">0</div><div class="lbl">Pemegang saham</div></div>
+        <div class="stat"><div class="val" id="stCompanies">0</div><div class="lbl">Emiten</div></div>
+        <div class="stat"><div class="val" id="stChanged">0</div><div class="lbl">Perubahan kepemilikan</div></div>
+      </div>
+
+      <div class="graph-layout">
+        <div class="graph-area" id="graphArea">
+          <canvas id="graphCanvas" height="500"></canvas>
+          <div class="graph-tooltip" id="tooltip">
+            <div class="t-name" id="ttName"></div>
+            <div class="t-detail" id="ttDetail"></div>
+          </div>
+
+          <div class="graph-hint">drag node untuk pindah · klik untuk detail</div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--teal)"></div> Feb 2026</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div> Mar 2026</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--amber);height:10px;width:10px;border-radius:50%"></div> Investor</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--teal);height:10px;width:10px;border-radius:50%"></div> Emiten</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#e8e6e0"></div> Holding Company</div>
+            <div class="legend-item">
+              <svg width="14" height="14" style="flex-shrink:0"><circle cx="7" cy="7" r="6" fill="#ff6b9d22" stroke="#ff6b9d" stroke-width="1.5" stroke-dasharray="3,2"/></svg>
+              Indirect Ownership
+            </div>
+            <div class="legend-item">
+              <svg width="28" height="10" style="flex-shrink:0"><line x1="0" y1="5" x2="18" y2="5" stroke="#ff6b9d" stroke-width="2" stroke-dasharray="4,3"/><polygon points="18,5 12,2 14,5 12,8" fill="#ff6b9d"/></svg>
+              Kepemilikan silang
+            </div>
+
+          </div>
+        </div>
+
+        <div class="detail-panel" id="detailPanel">
+          <div class="dp-header">
+            <div class="dp-node-badge">
+              <div class="dp-dot" id="dpDot"></div>
+              <div>
+                <div class="dp-title" id="dpTitle">—</div>
+                <div class="dp-type" id="dpType">—</div>
+                <div id="dpStats"></div>
+              </div>
+            </div>
+            <button class="dp-close" id="dpClose" title="Tutup">✕</button>
+          </div>
+          <div class="dp-body" id="dpBody">
+            <div class="dp-content-row" id="dpContentRow" style="display:none;">
+              <div class="dp-props-col" id="dpPropsCol"></div>
+              <div class="dp-charts-col" id="dpChartsCol"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TAB: GRAPH DATABASE -->
+    <div class="tab-content" id="tab-graphdb">
+      <div class="gdb-layout">
+
+        <!-- LEFT SIDEBAR -->
+        <div class="gdb-sidebar">
+
+          <!-- Filter: Investor / Perusahaan -->
+          <div class="gdb-panel">
+            <div class="gdb-panel-header">
+              <span style="font-size:14px;">🔍</span>
+              <span class="gdb-panel-title">Filter Investor / Perusahaan</span>
+            </div>
+            <div class="gdb-panel-body">
+              <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-family:var(--mono);">Nama tidak harus lengkap — cukup ketik sebagian</div>
+              <div class="gdb-autocomplete" style="margin-bottom:6px;">
+                <input class="gdb-input" id="gdbFilterName" placeholder="Contoh: &quot;Bank&quot; atau &quot;Mandiri&quot;..." oninput="gdbSuggestFilterName(this.value)" onblur="setTimeout(()=>document.getElementById('gdbFilterNameDd').classList.remove('open'),150)" autocomplete="off" onkeydown="if(event.key==='Enter'){const v=this.value.trim();if(v){addGDBNameTag(v);}}">
+                <div class="gdb-dropdown" id="gdbFilterNameDd"></div>
+              </div>
+              <div id="gdbFilterNameTags" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;"></div>
+              <div id="gdbFilterNameInfo" style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:6px;"></div>
+            </div>
+          </div>
+
+          <!-- Filter: Kode Saham -->
+          <div class="gdb-panel">
+            <div class="gdb-panel-header">
+              <span style="font-size:14px;">📋</span>
+              <span class="gdb-panel-title">Filter Kode Saham</span>
+            </div>
+            <div class="gdb-panel-body">
+              <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-family:var(--mono);">Kode tidak harus lengkap — cukup ketik sebagian</div>
+              <div class="gdb-autocomplete" style="margin-bottom:6px;">
+                <input class="gdb-input" id="gdbFilterShare" placeholder="Contoh: &quot;BBCA&quot; atau &quot;BRI&quot;..." oninput="gdbSuggestFilterShare(this.value)" onblur="setTimeout(()=>document.getElementById('gdbFilterShareDd').classList.remove('open'),150)" autocomplete="off" onkeydown="if(event.key==='Enter'){const v=this.value.trim().toUpperCase();if(v)addGDBShareTag(v);}">
+                <div class="gdb-dropdown" id="gdbFilterShareDd"></div>
+              </div>
+              <div id="gdbFilterShareTags" style="display:flex;flex-wrap:wrap;gap:4px;"></div>
+            </div>
+          </div>
+
+          <!-- Filter: Tanggal -->
+          <div class="gdb-panel">
+            <div class="gdb-panel-header">
+              <span style="font-size:14px;">📅</span>
+              <span class="gdb-panel-title">Filter Tanggal</span>
+            </div>
+            <div class="gdb-panel-body">
+              <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-family:var(--mono);">Default: tanggal terbaru. Pilih satu atau lebih.</div>
+              <div id="gdbDateChecklist" style="display:flex;flex-direction:column;gap:5px;"></div>
+            </div>
+          </div>
+
+          <!-- Graph Controls -->
+          <div class="gdb-panel">
+            <div class="gdb-panel-header">
+              <span style="font-size:14px;">⚙️</span>
+              <span class="gdb-panel-title">Tampilan</span>
+            </div>
+            <div class="gdb-panel-body">
+              <div class="mode-toggle">
+                <div class="mode-btn active" id="modeAll" onclick="setGraphMode('all')">Semua</div>
+                <div class="mode-btn" id="modeInv" onclick="setGraphMode('investors')">Investor</div>
+                <div class="mode-btn" id="modeComp" onclick="setGraphMode('companies')">Saham</div>
+              </div>
+              <div class="separator"></div>
+              <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);cursor:pointer;margin-bottom:8px;">
+                <input type="checkbox" id="showLabels" checked onchange="redrawGDB()"> Tampilkan label
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);cursor:pointer;margin-bottom:8px;">
+                <input type="checkbox" id="showWeights" onchange="redrawGDB()"> Tampilkan bobot (%)
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);cursor:pointer;">
+                <input type="checkbox" id="physicsEnabled" checked onchange="togglePhysics()"> Simulasi fisika
+              </label>
+              <div class="separator"></div>
+              <button class="gdb-btn secondary" onclick="resetGDBLayout()" style="width:100%;margin-bottom:5px;">Reset Layout</button>
+              <button class="gdb-btn danger" onclick="clearGDBSelection()" style="width:100%;">Bersihkan Seleksi</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- MAIN GRAPH CANVAS -->
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div class="gdb-canvas-wrap" id="gdbCanvasWrap">
+            <canvas id="gdbCanvas" height="600"></canvas>
+            <div class="gdb-status" id="gdbStatus">— node dipilih</div>
+            <div class="gdb-graph-controls">
+              <div class="gdb-ctrl-btn" onclick="gdbZoom(1.2)" title="Zoom In">+</div>
+              <div class="gdb-ctrl-btn" onclick="gdbZoom(0.8)" title="Zoom Out">−</div>
+              <div class="gdb-ctrl-btn" onclick="gdbFitView()" title="Fit View">⊡</div>
+            </div>
+            <div class="graph-tooltip" id="gdbTooltip">
+              <div class="t-name" id="gdbTtName"></div>
+              <div class="t-detail" id="gdbTtDetail"></div>
+            </div>
+            <div class="gdb-graph-hint">Klik node untuk expand relasi • Klik lagi untuk collapse • Drag untuk pindah • Scroll untuk zoom</div>
+            <div class="gdb-legend">
+              <div class="gdb-legend-item"><div class="gdb-legend-dot" style="background:var(--amber)"></div> Investor</div>
+              <div class="gdb-legend-item"><div class="gdb-legend-dot" style="background:var(--teal)"></div> Perusahaan</div>
+              <div class="gdb-legend-item"><div class="gdb-legend-dot" style="background:#e8e6e0;border:1px solid #9ca3af;"></div> Hybrid</div>
+              <div class="gdb-legend-item"><div class="gdb-legend-line" style="background:var(--teal)"></div> Feb</div>
+              <div class="gdb-legend-item"><div class="gdb-legend-line" style="background:var(--purple)"></div> Mar</div>
+            </div>
+          </div>
+
+          <!-- Neo4j-style detail panel -->
+          <div id="gdbNodeInfo" style="display:none;background:var(--surface);border:0.5px solid var(--border);border-radius:12px;overflow:hidden;">
+            <div id="gdbNeoHeader" style="padding:14px 16px;border-bottom:0.5px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:space-between;gap:10px;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div id="gdbNeoBadge" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#000;flex-shrink:0;"></div>
+                <div>
+                  <div id="gdbNeoTitle" style="font-size:14px;font-weight:700;color:var(--text);"></div>
+                  <div id="gdbNeoMeta" style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;"></div>
+                </div>
+              </div>
+              <button onclick="clearGDBSelection()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;padding:0 4px;flex-shrink:0;" title="Tutup">&#x2715;</button>
+            </div>
+            <div id="gdbNeoBody" style="padding:14px 16px;max-height:320px;overflow-y:auto;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let allData = [];
+let nodes = [], edges = [];
+let animFrame;
+let selectedNode = null;
+let hoveredNode = null;
+const crossOwnHidden = false; // selalu tampilkan semua node kepemilikan silang
+
+// Random seed for graph node sampling — regenerated on each data load
+let graphRandomSeed = Array.from({length: 200}, () => Math.random());
+
+
+// GDB state
+let gdbNodes = [], gdbEdges = [];
+let gdbSelectedNode = null;
+
+// GDB filter state
+let gdbFilterNameSet = new Set(); // investor/perusahaan names to filter
+let gdbFilterShareSet = new Set(); // share codes to filter
+let gdbFilterDateSet = new Set(); // dates to filter (empty = all dates)
+let gdbExpandedNodeIds = new Set();
+let gdbHighlightedNodeIds = new Set();
+let gdbPathNodeIds = new Set();
+let gdbCoInvNodeIds = new Set();
+let gdbGraphMode = 'all';
+let gdbZoomLevel = 1;
+let gdbOffsetX = 0, gdbOffsetY = 0;
+let gdbDragging = null;
+let gdbPanning = false;
+let gdbPanStart = null;
+let gdbPhysics = true;
+let gdbAnimFrame;
+let gdbHoveredNode = null;
+let gdbLoopT = 0;
+
+// ===== UPLOAD =====
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+uploadZone.style.cursor = 'default'; // disabled until auto-load fails
+uploadZone.onclick = () => { if(uploadZone.style.cursor !== 'default') fileInput.click(); };
+uploadZone.ondragover = e => { e.preventDefault(); uploadZone.classList.add('drag'); };
+uploadZone.ondragleave = () => uploadZone.classList.remove('drag');
+uploadZone.ondrop = e => { e.preventDefault(); uploadZone.classList.remove('drag'); loadFile(e.dataTransfer.files[0]); };
+fileInput.onchange = e => loadFile(e.target.files[0]);
+document.getElementById('dpClose').onclick = () => { selectedNode = null; closeDetailPanel(); };
+
+// ── Investor Name Normalization ───────────────────────────────────────────
+// Handles cases where the same entity appears with different name formats
+// across different dates in the CSV.
+// Strategy: canonicalize to a single consistent form.
+function normalizeInvestorName(name) {
+  if (!name) return name;
+  let n = name.trim().toUpperCase();
+
+  // Normalize Lo Kheng Hong variants:
+  // "LO KHENG HONG. DRS", "DRS LO KHENG HONG", "DRS. LO KHENG HONG" → "LO KHENG HONG"
+  const loKhengPattern = /^(?:DRS?\.?\s+)?LO\s+KHENG\s+HONG(?:\W.*)?$/i;
+  if (loKhengPattern.test(n)) return 'LO KHENG HONG';
+
+  // Normalize PT suffix → PT prefix:
+  // "NAMA PT" or "NAMA, PT" or "NAMA PT." → "PT NAMA"
+  // This handles cases like "PAPAN DAYA UTAMA PT" ↔ "PT. PAPAN DAYA UTAMA"
+  const ptSuffix = /^(.+?),?\s+PT\.?$/i;
+  const ptSuffixMatch = n.match(ptSuffix);
+  if (ptSuffixMatch) {
+    n = 'PT ' + ptSuffixMatch[1].trim();
+  }
+
+  // Normalize "PT." → "PT" prefix
+  n = n.replace(/^PT\.\s+/i, 'PT ');
+
+  return n;
+}
+
+function loadCSVText(text) {
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g,''));
+  allData = lines.slice(1).map(line => {
+    const vals = line.match(/(".*?"|[^,]+)/g) || [];
+    const row = {};
+    headers.forEach((h,i) => row[h] = (vals[i]||'').replace(/"/g,'').trim());
+    if (row['Investor Name']) {
+      row['Investor Name'] = row['Investor Name'].replace(/\.+$/, '').trim();
+      row['Investor Name'] = normalizeInvestorName(row['Investor Name']);
+    }
+    return row;
+  }).filter(r => r['Investor Name'] && r['Share Code']);
+  document.getElementById('mainContent').style.display = 'block';
+  uploadZone.style.display = 'none';
+  ovBuildCache();
+  populateFilters();
+  render();
+  buildGDBGraph();
+}
+
+function autoLoadCSV() {
+  // Try to fetch data.csv from same directory (works on GitHub Pages)
+  fetch('data.csv')
+    .then(res => {
+      if (!res.ok) throw new Error('not found');
+      return res.text();
+    })
+    .then(text => {
+      loadCSVText(text);
+    })
+    .catch(() => {
+      // data.csv not found — show manual upload UI
+      document.getElementById('uploadZoneMsg').innerHTML = '<strong>Klik untuk upload</strong> atau drag & drop CSV di sini';
+      document.getElementById('uploadZoneSub').textContent = 'Format: Date, Share Code, Issuer Name, Investor Name, Percentage';
+      uploadZone.style.cursor = 'pointer';
+    });
+}
+
+function loadFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => loadCSVText(e.target.result);
+  reader.readAsText(file);
+}
+
+// Auto-load on page start
+autoLoadCSV();
+
+// ── Date helpers ──────────────────────────────────────────────────────────
+// Converts any date string to a comparable number (YYYYMM) for proper sorting.
+// Supports: "28-Feb-2026", "Feb 2026", "2026-02-28", "28/02/2026", etc.
+function dateToNum(dateStr) {
+  if (!dateStr) return 0;
+  // "28-Feb-2026" or "28 Feb 2026"
+  const dmy = dateStr.match(/(\d{1,2})[-\s]([A-Za-z]{3})[-\s](\d{4})/);
+  if (dmy) {
+    const mMap={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+    return parseInt(dmy[3])*100 + (mMap[dmy[2]]||0);
+  }
+  // "Feb 2026" or "Mar 2026"
+  const my = dateStr.match(/^([A-Za-z]{3})\s*(\d{4})/);
+  if (my) {
+    const mMap={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+    return parseInt(my[2])*100 + (mMap[my[1]]||0);
+  }
+  // "2026-02-28" or "2026-02"
+  const iso = dateStr.match(/^(\d{4})-(\d{2})/);
+  if (iso) return parseInt(iso[1])*100 + parseInt(iso[2]);
+  // "28/02/2026"
+  const dmy2 = dateStr.match(/^(\d{1,2})\/(\d{2})\/(\d{4})/);
+  if (dmy2) return parseInt(dmy2[3])*100 + parseInt(dmy2[2]);
+  return 0;
+}
+
+// Returns the latest date string from allData, sorted correctly
+function getLatestDate() {
+  const dates = [...new Set(allData.map(r => r['Date']))];
+  return dates.sort((a, b) => dateToNum(a) - dateToNum(b)).slice(-1)[0];
+}
+
+// Sums pct for a company node from allData using each investor's latest date entry.
+// This avoids double-counting across multiple dates in the edges array.
+function totalPctLatest(edgeList, shareCode) {
+  if (!shareCode) {
+    // Fallback: derive shareCode from edge targets
+    const compEdge = edgeList.find(e => e.to && e.to.startsWith('comp_'));
+    const fromEdge = edgeList.find(e => e.from && e.from.startsWith('comp_'));
+    shareCode = compEdge ? compEdge.to.replace('comp_','') : (fromEdge ? fromEdge.from.replace('comp_','') : null);
+  }
+  if (!shareCode) return 0;
+  const latest = getLatestDate();
+  const rows = allData.filter(r => r['Share Code'] === shareCode);
+  // Group by investor → pick their latest date entry
+  const byInvestor = {};
+  rows.forEach(r => {
+    const inv = r['Investor Name'];
+    const num = dateToNum(r['Date']);
+    if (!byInvestor[inv] || num > byInvestor[inv].num) {
+      byInvestor[inv] = { num, pct: parseFloat(r['Percentage']) || 0 };
+    }
+  });
+  return Object.values(byInvestor).reduce((s, v) => s + v.pct, 0);
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-'+tab));
+  if (tab === 'graphdb') {
+    setTimeout(() => { buildGDBGraph(); }, 50);
+  }
+}
+
+function populateFilters() {
+  const shares = [...new Set(allData.map(r => r['Share Code']))].sort();
+  // Sort dates correctly using dateToNum, then default to latest
+  const dates = [...new Set(allData.map(r => r['Date']))].sort((a,b) => dateToNum(a) - dateToNum(b));
+  const latestDate = dates[dates.length - 1];
+  const sf = document.getElementById('shareFilter');
+  const df = document.getElementById('dateFilter');
+  shares.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; sf.appendChild(o); });
+  // Add "Semua tanggal" option first
+  const allOpt = document.createElement('option'); allOpt.value = ''; allOpt.textContent = 'Semua tanggal'; df.appendChild(allOpt);
+  dates.forEach(d => {
+    const o = document.createElement('option');
+    o.value = d; o.textContent = d;
+    if (d === latestDate) o.selected = true;
+    df.appendChild(o);
+  });
+}
+
+// ===== OVERVIEW: NAME AUTO-DETECT FILTER =====
+let ovNameSet = new Set();
+// Pre-computed caches — rebuilt once per data load
+let _ovInvestorSet = new Set();
+let _ovIssuerSet   = new Set();
+let _ovAllNames    = [];
+let _ovSuggestTimer;
+
+function ovBuildCache() {
+  _ovInvestorSet = new Set(allData.map(r => r['Investor Name']).filter(Boolean));
+  _ovIssuerSet   = new Set(allData.map(r => r['Issuer Name']).filter(Boolean));
+  _ovAllNames    = [...new Set([..._ovInvestorSet, ..._ovIssuerSet])];
+}
+
+function ovSuggestName(q) {
+  const dd = document.getElementById('ovSearchDd');
+  if (!q || q.length < 1) { dd.classList.remove('open'); dd.style.display = 'none'; return; }
+  const lq = q.toLowerCase();
+  const results = _ovAllNames
+    .filter(n => n.toLowerCase().includes(lq) && !ovNameSet.has(n))
+    .slice(0, 10)
+    .map(n => {
+      const isInv = _ovInvestorSet.has(n);
+      const isIss = _ovIssuerSet.has(n);
+      const typeLabel = isInv && isIss ? 'investor & emiten' : isInv ? 'investor' : 'emiten';
+      const typeColor = isInv && isIss ? 'var(--pink)' : isInv ? 'var(--amber)' : 'var(--teal)';
+      return { n, typeLabel, typeColor };
+    });
+  if (!results.length) { dd.classList.remove('open'); dd.style.display = 'none'; return; }
+  dd.style.display = 'block';
+  dd.innerHTML = results.map(({ n, typeLabel, typeColor }) =>
+    `<div class="gdb-dd-item" onmousedown="ovAddNameTag('${n.replace(/'/g,"\\'")}')">
+      <span>${n}</span>
+      <span class="dd-type" style="color:${typeColor};">${typeLabel}</span>
+    </div>`
+  ).join('');
+  dd.classList.add('open');
+}
+
+function ovAddNameTag(name) {
+  ovNameSet.add(name);
+  document.getElementById('searchInput').value = '';
+  const dd = document.getElementById('ovSearchDd');
+  dd.classList.remove('open'); dd.style.display = 'none';
+  ovRenderNameTags();
+  render();
+}
+
+function ovRemoveNameTag(name) {
+  ovNameSet.delete(name);
+  ovRenderNameTags();
+  render();
+}
+
+function ovRenderNameTags() {
+  const container = document.getElementById('ovSearchTags');
+  if (!ovNameSet.size) { container.innerHTML = ''; return; }
+  container.innerHTML = [...ovNameSet].map(n => {
+    const isInv = _ovInvestorSet.has(n);
+    const isIss = _ovIssuerSet.has(n);
+    const color = isInv && isIss ? 'var(--pink)' : isInv ? 'var(--amber)' : 'var(--teal)';
+    const bg    = isInv && isIss ? 'rgba(255,107,157,.15)' : isInv ? 'rgba(245,166,35,.15)' : 'rgba(0,212,170,.15)';
+    return `<span style="display:inline-flex;align-items:center;gap:4px;background:${bg};border:0.5px solid ${color};border-radius:20px;padding:2px 8px;font-size:10px;font-family:var(--mono);color:${color};white-space:nowrap;flex-shrink:0;">
+      ${n} <span style="cursor:pointer;font-size:13px;line-height:1;color:${color};opacity:.7;" onmousedown="ovRemoveNameTag('${n.replace(/'/g,"\\'")}')">×</span>
+    </span>`;
+  }).join('');
+}
+
+function getFiltered() {
+  const q = document.getElementById('searchInput').value.toLowerCase().trim();
+  const sh = document.getElementById('shareFilter').value;
+  const dt = document.getElementById('dateFilter').value;
+  // Tag-based filter: match if any tag matches investor or issuer name
+  const hasTags = ovNameSet.size > 0;
+  return allData.filter(r => {
+    // Name filter: tags take priority, then free-text input
+    let nameMatch = true;
+    if (hasTags) {
+      nameMatch = ovNameSet.has(r['Investor Name']) || ovNameSet.has(r['Issuer Name']);
+    } else if (q) {
+      nameMatch = r['Investor Name'].toLowerCase().includes(q) || (r['Issuer Name']||'').toLowerCase().includes(q) || r['Share Code'].toLowerCase().includes(q);
+    }
+    return nameMatch &&
+      (!sh || r['Share Code'] === sh) &&
+      (!dt || r['Date'] === dt);
+  });
+}
+
+function render() {
+  const data = getFiltered();
+  updateStats(data);
+  buildGraph(data);
+  buildTable(data);
+}
+
+function updateStats(data) {
+  const investors = new Set(data.map(r => r['Investor Name']));
+  const companies = new Set(data.map(r => r['Share Code']));
+  const dates = [...new Set(data.map(r => r['Date']))].sort();
+  let changed = 0;
+  if (dates.length >= 2) {
+    const byKey = {};
+    data.forEach(r => { const k = r['Investor Name']+'|'+r['Share Code']; if(!byKey[k])byKey[k]={}; byKey[k][r['Date']]=parseFloat(r['Percentage']); });
+    Object.values(byKey).forEach(v => { const vals = Object.values(v); if(vals.length>=2&&vals[0]!==vals[1])changed++; });
+  }
+  document.getElementById('stTotal').textContent = data.length;
+  document.getElementById('stInvestors').textContent = investors.size;
+  document.getElementById('stCompanies').textContent = companies.size;
+  document.getElementById('stChanged').textContent = changed;
+}
+
+// ===== DYNAMIC SIZING HELPER =====
+// Returns {nodeR, compR, H, labelFontSize, labelOffset, pctFontSize, pctOffset}
+// based on how many nodes (investors) are visible.
+function calcDynamicSizes(numInvestors, numCompanies) {
+  const maxNodes = Math.max(numInvestors, numCompanies, 1);
+  // Canvas height: min 380, grows with node count, caps at 900
+  const H = Math.max(380, Math.min(900, maxNodes * 52 + 120));
+  // Node radius: fewer nodes → bigger, more nodes → smaller
+  // Range: 8px (40+ nodes) to 22px (1–4 nodes)
+  const nodeR  = Math.max(8,  Math.min(22, Math.round(22 - (maxNodes - 1) * 0.38)));
+  const compR  = Math.max(10, Math.min(22, nodeR + 2));
+  // Label font scales with radius
+  const labelFontSize = Math.max(9,  Math.min(14, nodeR * 0.7));
+  const pctFontSize   = Math.max(8,  Math.min(12, nodeR * 0.58));
+  const labelOffset   = Math.max(6,  Math.min(14, nodeR * 0.65));
+  const pctOffset     = Math.max(5,  Math.min(11, nodeR * 0.55));
+  return { H, nodeR, compR, labelFontSize, pctFontSize, labelOffset, pctOffset };
+}
+
+// ===== OVERVIEW GRAPH =====
+function buildGraph(data) {
+  const canvas = document.getElementById('graphCanvas');
+  const area = document.getElementById('graphArea');
+  const W = area.clientWidth || 860;
+  const ctx = canvas.getContext('2d');
+  const dates = [...new Set(data.map(r => r['Date']))].sort();
+  const febDate = dates[0];
+  // Build investorMap from allData so hybrid entities (e.g. BUMI RESOURCES TBK
+  // which invests in BRMS but is not in the filtered share) are always discoverable.
+  const investorMap = {};
+  allData.forEach(r => {
+    const inv = r['Investor Name']; const pct = parseFloat(r['Percentage'])||0;
+    if(!investorMap[inv])investorMap[inv]={maxPct:0};
+    if(pct>investorMap[inv].maxPct)investorMap[inv].maxPct=pct;
+  });
+  // Visible investors = those who appear in currently filtered data
+  const visibleInvestorNames = [...new Set(data.map(r=>r['Investor Name']))];
+  const allInvestors = Object.keys(investorMap);
+  const allCompanies = [...new Set(data.map(r=>r['Share Code']))];
+  // When search/filter is active, show all results; otherwise show 25 random nodes
+  const q = document.getElementById('searchInput').value.trim();
+  const sh2active = document.getElementById('shareFilter').value;
+  let investors, companies;
+  if (q || sh2active) {
+    investors = visibleInvestorNames;
+    companies = allCompanies;
+  } else {
+    // Pick 25 random investors from the visible set using the seeded random pool
+    const pool = [...visibleInvestorNames];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(graphRandomSeed[i % graphRandomSeed.length] * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    investors = pool.slice(0, 10);
+    // Companies: only those with edges to the selected investors
+    const invSet = new Set(investors);
+    companies = [...new Set(data.filter(r => invSet.has(r['Investor Name'])).map(r => r['Share Code']))];
+  }
+
+  // ── Dynamic sizing based on node count ──────────────────────────────────
+  const sz = calcDynamicSizes(investors.length, companies.length);
+  const H = sz.H;
+  canvas.width = W; canvas.height = H;
+
+  nodes = [];
+  const invX = W*0.30, compX = W*0.78;
+  const invSpacing  = (H - sz.nodeR*2 - 20) / Math.max(investors.length - 1, 1);
+  const compSpacing = (H - sz.compR*2 - 20) / Math.max(companies.length  - 1, 1);
+
+  investors.forEach((name,i)=>{
+    const maxPct = investorMap[name].maxPct;
+    // Radius: base from dynamic size, tiny boost for large holders (max +4px)
+    const r = Math.max(sz.nodeR, Math.min(sz.nodeR + 4, sz.nodeR + (maxPct / 100) * 4));
+    const y = sz.nodeR + 10 + i * invSpacing;
+    nodes.push({id:'inv_'+name,label:name.split(' ')[0],fullLabel:name,type:'investor',x:invX+(Math.random()-.5)*20,y,r,maxPct,vx:0,vy:0});
+  });
+  companies.forEach((sh,i)=>{
+    const issuerName = (data.find(r=>r['Share Code']===sh)||{})['Issuer Name']||'';
+    const y = sz.compR + 10 + i * compSpacing;
+    nodes.push({id:'comp_'+sh,label:sh,fullLabel:sh,type:'company',issuerName,x:compX+(Math.random()-.5)*15,y,r:sz.compR,vx:0,vy:0});
+  });
+  edges = [];
+  const visibleInvSet = new Set(investors);
+  const visibleCompSet = new Set(companies);
+  data.forEach(r=>{
+    if(!visibleInvSet.has(r['Investor Name'])||!visibleCompSet.has(r['Share Code']))return;
+    const isFeb = r['Date']===febDate;
+    edges.push({from:'inv_'+r['Investor Name'],to:'comp_'+r['Share Code'],date:r['Date'],pct:parseFloat(r['Percentage']),color:isFeb?'#00d4aa':'#8b7fff',isFeb});
+  });
+
+  // Expand: show ALL nodes connected to already-visible nodes (from allData)
+  // This ensures that when filtering by share/investor, all their neighbors appear too
+  const sh2 = document.getElementById('shareFilter').value;
+  const febAll = [...new Set(allData.map(x=>x['Date']))].sort()[0];
+
+  if (sh2) {
+    const visibleNodeIds = new Set(nodes.map(n=>n.id));
+
+    function ensureInvestor(invName) {
+      const id = 'inv_'+invName;
+      if (visibleNodeIds.has(id)) return;
+      const rows = allData.filter(r=>r['Investor Name']===invName);
+      const maxPct = rows.reduce((m,r)=>Math.max(m,parseFloat(r['Percentage'])||0),0);
+      const rr = Math.max(sz.nodeR, Math.min(sz.nodeR+4, sz.nodeR+(maxPct/100)*4));
+      nodes.push({id,label:invName.split(' ')[0],fullLabel:invName,type:'investor',x:invX+(Math.random()-.5)*30,y:Math.random()*H*0.8+H*0.1,r:rr,maxPct,vx:0,vy:0});
+      visibleNodeIds.add(id);
+    }
+    function addEdgeIfMissing(invName, sh, date) {
+      const key = 'inv_'+invName+'|comp_'+sh+'|'+date;
+      if (addedEdgeKeys.has(key)) return;
+      addedEdgeKeys.add(key);
+      const isFebE = date===febAll;
+      const pct = parseFloat(allData.find(r=>r['Investor Name']===invName&&r['Share Code']===sh&&r['Date']===date)?.['Percentage'])||0;
+      edges.push({from:'inv_'+invName,to:'comp_'+sh,date,pct,color:isFebE?'#00d4aa':'#8b7fff',isFeb:isFebE});
+    }
+    const addedEdgeKeys = new Set(edges.map(e=>`${e.from}|${e.to}|${e.date}`));
+
+    // Step 1: All investors holding the filtered share
+    allData.filter(r=>r['Share Code']===sh2).forEach(r=>{
+      ensureInvestor(r['Investor Name']);
+      addEdgeIfMissing(r['Investor Name'], sh2, r['Date']);
+    });
+  }
+
+  // ── HYBRID DETECTION (single-pass, robust) ─────────────────────────────────
+  // Strategy: for every company node, check if its issuer name matches any known
+  // investor name in allData. If yes → that company IS the investor → hybrid node.
+  // Also: for every investor node, check if it matches any company's issuer name.
+  // We use a simple normalize helper for fuzzy matching.
+
+  function normHybrid(s) {
+    let v = (s||'').trim().toLowerCase();
+    // Strip prefixes: "pt ", "pt. "
+    v = v.replace(/^pt\.?\s+/g, '');
+    // Strip suffixes (repeat twice to catch "tbk pt" → "tbk" → "")
+    const sfx = /\s+(tbk|pt\.?|ltd\.?|pte\.?|inc\.?|corp\.?|co\.?|tbk\.?)\s*$/gi;
+    v = v.replace(sfx, '').replace(sfx, '');
+    // Normalize whitespace
+    return v.replace(/\s+/g, ' ').trim();
+  }
+
+  // Build a lookup: normalized_issuer_name → share_code  (from ALL data, not filtered)
+  const issuerNormToCode = {};
+  allData.forEach(r => {
+    if (r['Issuer Name'] && r['Share Code']) {
+      issuerNormToCode[normHybrid(r['Issuer Name'])] = r['Share Code'];
+    }
+  });
+
+  // Build a lookup: normalized_investor_name → original investor name (from allData)
+  const invNormToName = {};
+  allData.forEach(r => {
+    if (r['Investor Name']) {
+      invNormToName[normHybrid(r['Investor Name'])] = r['Investor Name'];
+    }
+  });
+
+  // mergeMap: inv_X → comp_Y  (these are the same real-world entity)
+  const mergeMap = {};
+
+  // For each visible company node, check if its issuer is also a known investor
+  nodes.filter(n => n.type === 'company').forEach(compNode => {
+    const norm = normHybrid(compNode.issuerName || compNode.fullLabel);
+    if (norm.length < 4) return;
+
+    // Direct exact match after normalization
+    const matchedInvName = invNormToName[norm];
+    if (!matchedInvName) return;
+
+    // Confirm this investor has actual holdings in allData
+    if (!allData.some(r => r['Investor Name'] === matchedInvName)) return;
+
+    const invId = 'inv_' + matchedInvName;
+    mergeMap[invId] = compNode.id;
+  });
+
+  // For each visible investor node, check if it matches a company's issuer
+  // (handles case where company is not in current filtered view)
+  nodes.filter(n => n.type === 'investor').forEach(invNode => {
+    const invId = invNode.id;
+    if (mergeMap[invId]) return; // already mapped
+    const norm = normHybrid(invNode.fullLabel);
+    if (norm.length < 4) return;
+
+    const matchedCode = issuerNormToCode[norm];
+    if (!matchedCode) return;
+
+    // GUARD: confirm the investor genuinely owns shares in companies OTHER than
+    // the one it issues (matchedCode). A real holding company invests outward;
+    // if the only match is self-referential (e.g. investor name ~ issuer name
+    // of a stock it holds but doesn't control), skip it.
+    const invName = invNode.fullLabel;
+    const hasExternalHoldings = allData.some(r =>
+      r['Investor Name'] === invName && r['Share Code'] !== matchedCode
+    );
+    if (!hasExternalHoldings) return;
+
+    // Check company node exists or can be created
+    const compId = 'comp_' + matchedCode;
+    mergeMap[invId] = compId;
+
+    // Ensure company node exists (may not be in current filtered view)
+    if (!nodes.find(n => n.id === compId)) {
+      const row = allData.find(r => r['Share Code'] === matchedCode);
+      nodes.push({
+        id: compId, label: matchedCode, fullLabel: matchedCode,
+        type: 'company', issuerName: row?.['Issuer Name'] || '',
+        x: compX + (Math.random()-.5)*20, y: Math.random()*H*0.8+H*0.1,
+        r: sz.compR, vx: 0, vy: 0, expandedNew: true
+      });
+    }
+  });
+
+  // For each hybrid entity: inject a synthetic inv node if not present,
+  // AND inject edges for all shares it owns (investor side, latest date).
+  const allDatesHybrid = [...new Set(allData.map(r => r['Date']))]
+    .sort((a,b) => dateToNum(a) - dateToNum(b));
+  const latestDateHybrid = allDatesHybrid[allDatesHybrid.length - 1];
+
+  Object.entries(mergeMap).forEach(([invId, compId]) => {
+    const invName = invId.replace('inv_', '');
+
+    // Skip: hybrid only valid if this entity ACTUALLY owns shares in OTHER companies
+    // (i.e. not just self-loop: investor of its own share)
+    const ownedNonSelf = allData.filter(r =>
+      r['Investor Name'] === invName &&
+      r['Date'] === latestDateHybrid &&
+      'comp_' + r['Share Code'] !== compId
+    );
+    if (ownedNonSelf.length === 0) {
+      delete mergeMap[invId];
+      return;
+    }
+
+    // Inject synthetic inv node so merge code below can find & remove it
+    if (!nodes.find(n => n.id === invId)) {
+      const invRows = allData.filter(r => r['Investor Name'] === invName);
+      const maxPct  = invRows.reduce((m,r) => Math.max(m, parseFloat(r['Percentage'])||0), 0);
+      const compNode = nodes.find(n => n.id === compId);
+      nodes.push({
+        id: invId, label: invName.split(' ')[0], fullLabel: invName,
+        type: 'investor', issuerName: compNode?.issuerName || '',
+        x: compNode?.x || W*0.5, y: compNode?.y || H*0.5,
+        r: sz.compR, maxPct, vx: 0, vy: 0
+      });
+    }
+
+    // Inject edges for shares owned by this entity (investor side)
+    const ownedRows = allData.filter(r =>
+      r['Investor Name'] === invName && r['Date'] === latestDateHybrid
+    );
+    ownedRows.forEach(r => {
+      const ownedCompId = 'comp_' + r['Share Code'];
+      if (ownedCompId === compId) return; // skip self-loop
+      const isFebH = latestDateHybrid === allDatesHybrid[0];
+
+      // Ensure owned company node exists
+      if (!nodes.find(n => n.id === ownedCompId)) {
+        const ownedIssuer = (allData.find(x => x['Share Code'] === r['Share Code'])||{})['Issuer Name']||'';
+        nodes.push({
+          id: ownedCompId, label: r['Share Code'], fullLabel: r['Share Code'],
+          type: 'company', issuerName: ownedIssuer,
+          x: compX + (Math.random()-.5)*20, y: Math.random()*H*0.8+H*0.1,
+          r: sz.compR, vx: 0, vy: 0, expandedNew: true
+        });
+      }
+      // Edge from synthetic inv node (will be remapped to comp node after merge)
+      edges.push({
+        from: invId, to: ownedCompId,
+        date: latestDateHybrid, pct: parseFloat(r['Percentage'])||0,
+        color: isFebH ? '#00d4aa' : '#8b7fff', isFeb: isFebH,
+        _hybridOwned: true
+      });
+    });
+  });
+
+  // Remap edges: replace inv node id with company node id (mergeMap)
+  edges.forEach(e => {
+    if (mergeMap[e.from]) e.from = mergeMap[e.from];
+    if (mergeMap[e.to])   e.to   = mergeMap[e.to];
+  });
+
+  // Remove duplicate edges after remapping
+  const edgeSeen = new Set();
+  edges = edges.filter(e => {
+    const key = `${e.from}|${e.to}|${e.date}`;
+    if (edgeSeen.has(key)) return false;
+    edgeSeen.add(key); return true;
+  });
+
+  // Mark cross-ownership edges: edges where from or to is a hybrid node (comp_ that is also investor)
+  const hybridCompIds = new Set(Object.values(mergeMap));
+  edges.forEach(e => {
+    if (hybridCompIds.has(e.from) || hybridCompIds.has(e.to)) {
+      e.isCrossOwnership = true;
+      e.color = '#ff6b9d'; // pink for cross-ownership
+    }
+  });
+
+  // Remove investor nodes that were merged, upgrade company node to hybrid
+  const mergedInvIds = new Set(Object.keys(mergeMap));
+  nodes = nodes.filter(n => !mergedInvIds.has(n.id));
+  Object.values(mergeMap).forEach(compId => {
+    const n = nodes.find(x => x.id === compId);
+    if (!n) return;
+    const invId   = Object.keys(mergeMap).find(k => mergeMap[k] === compId);
+    const invName = invId?.replace('inv_','');
+    const maxPct  = invName ? (investorMap[invName]?.maxPct || 0) : 0;
+    n.type = 'hybrid';
+    n.isAlsoInvestor = true;
+    n.invName = invName;
+    n.maxPct  = maxPct;
+    n.r       = Math.max(sz.compR, Math.min(sz.compR+4, sz.compR + (maxPct/100)*4));
+    n.x       = W * 0.5;
+    // Pre-cache display strings
+    n._color    = '#e8e6e0';
+    n._initials = n.label.slice(0,3);
+    n._line1    = n.fullLabel;
+    n._issShort = (n.issuerName||'').length>20 ? (n.issuerName.slice(0,20)+'…') : (n.issuerName||'');
+    n._pctStr   = maxPct.toFixed(1)+'%';
+  });
+
+  // Reposition companies owned by hybrid nodes to the RIGHT of their hybrid parent
+  // Build a set of (hybridId → [ownedCompIds]) from _hybridOwned edges
+  const hybridOwnedMap = {}; // hybridCompId → [ownedCompId]
+  edges.forEach(e => {
+    if (!e._hybridOwned && !e.isCrossOwnership) return;
+    const fromNode = nodes.find(n => n.id === e.from);
+    if (!fromNode || fromNode.type !== 'hybrid') return;
+    if (!hybridOwnedMap[e.from]) hybridOwnedMap[e.from] = [];
+    if (!hybridOwnedMap[e.from].includes(e.to)) hybridOwnedMap[e.from].push(e.to);
+  });
+
+  Object.entries(hybridOwnedMap).forEach(([hybridId, ownedIds]) => {
+    const hybridNode = nodes.find(n => n.id === hybridId);
+    if (!hybridNode) return;
+    const ownedX = hybridNode.x + (compX - W * 0.5) * 0.72; // between hybrid and compX
+    const spacing = (H - sz.compR*2 - 20) / Math.max(ownedIds.length, 1);
+    ownedIds.forEach((ownedId, i) => {
+      const ownedNode = nodes.find(n => n.id === ownedId);
+      if (!ownedNode) return;
+      // Only hide-able if this node has NO regular (non-cross-ownership) edges
+      // i.e. it exists purely because of hybrid ownership, not from the main graph
+      const hasRegularEdge = edges.some(e =>
+        !e.isCrossOwnership && (e.from === ownedId || e.to === ownedId)
+      );
+      if (!hasRegularEdge) {
+        // Jangan tag node yang sedang difilter — tetap tampil sebagai company teal
+        const _activeFilter = document.getElementById('shareFilter')?.value;
+        const isFilteredStock = _activeFilter && ownedId === 'comp_' + _activeFilter;
+        if (!isFilteredStock) {
+          ownedNode._hybridOwnedBy = hybridId;   // tag for physics anchor + hide toggle
+          ownedNode._hybridOwnedTargetX = ownedX;
+        }
+      }
+      ownedNode.x = ownedX + (Math.random() - 0.5) * 10;
+      ownedNode.y = sz.compR + 10 + i * spacing + (H / (ownedIds.length + 1)) * (i + 1) * 0.15;
+    });
+  });
+
+  // Helper: expand hidden neighbors positioned beside the selected node
+  
+
+  
+
+  cancelAnimationFrame(animFrame);
+  let t = 0;
+  // Cache: node lookup by id — O(1) instead of O(n) find() every frame
+  let nodeMap = {};
+  function rebuildNodeMap(){ nodeMap={}; nodes.forEach(n=>nodeMap[n.id]=n); }
+  rebuildNodeMap();
+
+  // Cache connected ids — only recompute when selection changes
+  let cachedConnectedIds = null;
+  let cachedSelectedId = null;
+  function getConnectedIds(nodeId){
+    if(nodeId===cachedSelectedId && cachedConnectedIds) return cachedConnectedIds;
+    const ids=new Set();
+    edges.forEach(e=>{if(e.from===nodeId)ids.add(e.to);if(e.to===nodeId)ids.add(e.from);});
+    cachedSelectedId=nodeId; cachedConnectedIds=ids;
+    return ids;
+  }
+  function invalidateConnCache(){ cachedSelectedId=null; cachedConnectedIds=null; }
+
+  // Physics: stop simulation after nodes settle (saves CPU when idle)
+  let physicsActive = true;
+  let settleFrames = 0;
+  const SETTLE_AFTER = 80; // frames of low movement before pausing physics
+
+  function applyBuoyancy(connectedIds){
+    if(!selectedNode) return;
+    const active=[];
+    const selId=selectedNode.id;
+    nodes.forEach(n=>{ if(n.id===selId||(connectedIds&&connectedIds.has(n.id))) active.push(n); });
+    let totalMovement = 0;
+    const sel = nodeMap[selId];
+    for(let i=0;i<active.length;i++){
+      for(let j=i+1;j<active.length;j++){
+        const a=active[i],b=active[j];
+        const dx=b.x-a.x,dy=b.y-a.y;
+        const dist2=dx*dx+dy*dy;
+        const minDist=(a.r+b.r)*2.8;
+        if(dist2<minDist*minDist){
+          const dist=Math.sqrt(dist2)||1;
+          const force=(minDist-dist)/minDist*0.6;
+          const nx=dx/dist,ny=dy/dist;
+          a.vx-=nx*force;a.vy-=ny*force;
+          b.vx+=nx*force;b.vy+=ny*force;
+        }
+      }
+      const n=active[i];
+      if(n.id!==selId){
+        if(n.anchorBeside){
+          const targetX = n.type==='company' ? sel.x+140 : sel.x-140;
+          n.vx+=(targetX-n.x)*0.05;
+        } else if(n._hybridOwnedBy && n._hybridOwnedTargetX != null){
+          n.vx+=(n._hybridOwnedTargetX-n.x)*0.05;
+        } else {
+          const targetX=n.type==='investor'?invX:n.type==='hybrid'?W*0.5:compX;
+          n.vx+=(targetX-n.x)*0.03;
+        }
+      }
+      if(n===ovDragNode){ totalMovement=0; continue; } // skip physics for dragged node
+      n.vx*=0.75;n.vy*=0.75;
+      const speed2=n.vx*n.vx+n.vy*n.vy;
+      if(speed2>16){const sp=Math.sqrt(speed2);n.vx=n.vx/sp*4;n.vy=n.vy/sp*4;}
+      n.x+=n.vx;n.y+=n.vy;
+      n.x=Math.max(n.r+10,Math.min(W-n.r-80,n.x));
+      n.y=Math.max(n.r+10,Math.min(H-n.r-10,n.y));
+      totalMovement+=speed2;
+    }
+    // Detect settle: if everything is barely moving, pause physics
+    if(totalMovement < active.length * 0.01) { settleFrames++; } else { settleFrames=0; }
+    if(settleFrames > SETTLE_AFTER) physicsActive=false;
+  }
+
+  // Pre-cache node initials and label strings so we don't recompute every frame
+  const _activeFilterPrecache = document.getElementById('shareFilter')?.value;
+  nodes.forEach(n=>{
+    // Filtered stock selalu jadi company node (teal), hapus tag cross-ownership jika ada
+    if (_activeFilterPrecache && n.id === 'comp_' + _activeFilterPrecache) {
+      delete n._hybridOwnedBy;
+      delete n._hybridOwnedTargetX;
+      n.type = n.type === 'hybrid' ? 'hybrid' : 'company'; // jaga hybrid type jika memang hybrid
+    }
+    n._initials = n.type==='investor'
+      ? n.fullLabel.split(' ').slice(0,3).map(w=>w[0]).join('').toUpperCase()
+      : n.label.slice(0,4);
+    n._line1 = n.type==='investor'
+      ? n.fullLabel
+      : n.fullLabel;
+    n._issShort = (n.issuerName||'').length>24?(n.issuerName.slice(0,24)+'…'):(n.issuerName||'');
+    n._pctStr = n.maxPct!=null ? n.maxPct.toFixed(1)+'%' : '';
+    n._color = n.type==='investor'?'#f5a623':n.type==='hybrid'?'#e8e6e0':'#00d4aa';
+  });
+
+  // Batch edges by color+alpha to minimize ctx state changes
+  function drawEdgesBatched(connectedIds){
+    const PI2=Math.PI*2;
+    // Draw dimmed edges in one pass, then highlighted
+    const dimEdges=[], hlEdges=[], normEdges=[];
+    edges.forEach(e=>{
+      const fn=nodeMap[e.from], tn=nodeMap[e.to]; if(!fn||!tn) return;
+      // Cross-ownership edges selalu tampil (tidak lagi disembunyikan)
+      if(selectedNode){
+        const isHL=e.from===selectedNode.id||e.to===selectedNode.id;
+        if(isHL) hlEdges.push(e); else dimEdges.push(e);
+      } else normEdges.push(e);
+    });
+
+    // Helper: draw one edge path with optional dash
+    function drawEdgePath(fn,tn,cx,cy,dashed){
+      if(dashed) ctx.setLineDash([5,4]); else ctx.setLineDash([]);
+      ctx.beginPath();ctx.moveTo(fn.x,fn.y);
+      ctx.quadraticCurveTo(cx,cy,tn.x,tn.y);ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Dim pass — batch all together
+    if(dimEdges.length){
+      ctx.globalAlpha=0.07;
+      dimEdges.forEach(e=>{
+        const fn=nodeMap[e.from],tn=nodeMap[e.to];
+        ctx.strokeStyle=e.color;ctx.lineWidth=1.5;
+        const cx=(fn.x+tn.x)/2,cy=(fn.y+tn.y)/2;
+        drawEdgePath(fn,tn,cx,cy,e.isCrossOwnership);
+      });
+      ctx.globalAlpha=1;
+    }
+
+    // Normal pass (no selection)
+    if(normEdges.length){
+      normEdges.forEach(e=>{
+        const fn=nodeMap[e.from],tn=nodeMap[e.to];
+        ctx.strokeStyle=e.color;ctx.lineWidth=e.isCrossOwnership?2:1.5;ctx.globalAlpha=0.45;
+        const cx=(fn.x+tn.x)/2,cy=(fn.y+tn.y)/2;
+        drawEdgePath(fn,tn,cx,cy,e.isCrossOwnership);
+        // Arrowhead
+        const dx=tn.x-cx,dy=tn.y-cy,len=Math.sqrt(dx*dx+dy*dy)||1;
+        const mx=tn.x-(tn.r+4)*dx/len,my=tn.y-(tn.r+4)*dy/len,angle=Math.atan2(tn.y-cy,tn.x-cx);
+        ctx.globalAlpha=0.65;ctx.fillStyle=e.color;
+        // Cross-ownership: double-headed diamond arrowhead indicator
+        if(e.isCrossOwnership){
+          ctx.beginPath();
+          ctx.moveTo(mx,my);
+          ctx.lineTo(mx-9*Math.cos(angle-0.3),my-9*Math.sin(angle-0.3));
+          ctx.lineTo(mx-14*Math.cos(angle),my-14*Math.sin(angle));
+          ctx.lineTo(mx-9*Math.cos(angle+0.3),my-9*Math.sin(angle+0.3));
+          ctx.closePath();ctx.fill();
+        } else {
+          ctx.beginPath();ctx.moveTo(mx,my);
+          ctx.lineTo(mx-7*Math.cos(angle-0.38),my-7*Math.sin(angle-0.38));
+          ctx.lineTo(mx-7*Math.cos(angle+0.38),my-7*Math.sin(angle+0.38));
+          ctx.closePath();ctx.fill();
+        }
+      });
+      ctx.globalAlpha=1;
+    }
+
+    // Highlighted pass — full quality
+    hlEdges.forEach(e=>{
+      const fn=nodeMap[e.from],tn=nodeMap[e.to];
+      const baseW=Math.max(1.5,Math.min(4,1.2+e.pct*0.06));
+      ctx.strokeStyle=e.color;ctx.lineWidth=e.isCrossOwnership?baseW+0.5:baseW;ctx.globalAlpha=0.92;
+      const cx=(fn.x+tn.x)/2+Math.sin(t+fn.y*0.05)*12,cy=(fn.y+tn.y)/2;
+      drawEdgePath(fn,tn,cx,cy,e.isCrossOwnership);
+      const dx=tn.x-cx,dy=tn.y-cy,len=Math.sqrt(dx*dx+dy*dy)||1;
+      const arrowSize=Math.max(7,Math.min(11,6+baseW*1.4));
+      const mx=tn.x-(tn.r+4)*dx/len,my=tn.y-(tn.r+4)*dy/len,angle=Math.atan2(tn.y-cy,tn.x-cx);
+      ctx.fillStyle=e.color;ctx.globalAlpha=0.95;
+      if(e.isCrossOwnership){
+        // Diamond arrowhead for cross-ownership
+        ctx.beginPath();
+        ctx.moveTo(mx,my);
+        ctx.lineTo(mx-(arrowSize)*Math.cos(angle-0.3),my-(arrowSize)*Math.sin(angle-0.3));
+        ctx.lineTo(mx-(arrowSize+6)*Math.cos(angle),my-(arrowSize+6)*Math.sin(angle));
+        ctx.lineTo(mx-(arrowSize)*Math.cos(angle+0.3),my-(arrowSize)*Math.sin(angle+0.3));
+        ctx.closePath();ctx.fill();
+      } else {
+        ctx.beginPath();ctx.moveTo(mx,my);
+        ctx.lineTo(mx-arrowSize*Math.cos(angle-0.38),my-arrowSize*Math.sin(angle-0.38));
+        ctx.lineTo(mx-arrowSize*Math.cos(angle+0.38),my-arrowSize*Math.sin(angle+0.38));
+        ctx.closePath();ctx.fill();
+      }
+      // pct label
+      const lx=(fn.x+tn.x)/2+Math.sin(t+fn.y*0.05)*6,ly=(fn.y+tn.y)/2-8;
+      ctx.fillStyle=e.color;ctx.globalAlpha=0.9;ctx.font=`500 9px 'DM Mono',monospace`;
+      ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(e.pct.toFixed(1)+'%',lx,ly);
+      ctx.globalAlpha=1;
+    });
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    ctx.globalAlpha=0.06;ctx.fillStyle='#1e2230';ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;
+
+    const connectedIds = selectedNode ? getConnectedIds(selectedNode.id) : null;
+    drawEdgesBatched(connectedIds);
+
+    // Dynamic fonts based on current node sizing
+    const font700_13 = `700 ${Math.round(sz.labelFontSize)}px 'DM Mono',monospace`;
+    const font500_11 = `500 ${Math.round(sz.pctFontSize)}px 'DM Mono',monospace`;
+    const font400_10 = `400 ${Math.max(8,Math.round(sz.pctFontSize)-1)}px 'DM Mono',monospace`;
+
+    nodes.forEach(n=>{
+      // Node _hybridOwnedBy selalu tampil (crossOwnHidden = false)
+      // Tapi diberi visual khusus: opacity lebih rendah + border pink
+
+      const isSelected = selectedNode && selectedNode.id===n.id;
+      const isConnected = connectedIds && connectedIds.has(n.id);
+      const isDimmed = selectedNode && !isSelected && !isConnected;
+      const isHovered = hoveredNode && hoveredNode.id===n.id;
+      // Filtered stock selalu tampil sebagai company (teal), bukan cross node
+      const _activeFilter = document.getElementById('shareFilter').value;
+      const isFilteredNode = _activeFilter && n.id === 'comp_' + _activeFilter;
+      const isCrossNode = !!n._hybridOwnedBy && !isFilteredNode;
+      const r = isSelected ? n.r*1.22 : n.r;
+      const nodeColor = isCrossNode ? '#ff6b9d' : n._color; // pink untuk cross-ownership nodes
+
+      if(n.type==='hybrid'){
+        ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);
+        ctx.fillStyle='#e8e6e0';ctx.globalAlpha=isDimmed?0.18:0.92;ctx.fill();ctx.globalAlpha=1;
+        ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);
+        ctx.strokeStyle=isSelected?'#e8e6e0':'#e8e6e070';ctx.lineWidth=isSelected?3:2;
+        ctx.globalAlpha=isDimmed?0.18:1;ctx.stroke();ctx.globalAlpha=1;
+        const innerSize=Math.max(9,Math.min(r*0.55,14));
+        ctx.font=`700 ${innerSize}px 'DM Mono',monospace`;
+        ctx.fillStyle='#1a1c24';ctx.globalAlpha=isDimmed?0:0.85;
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(n._initials,n.x,n.y);ctx.globalAlpha=1;
+      } else if(isCrossNode){
+        // Cross-ownership node: lingkaran pink transparan dengan border dashed
+        const baseAlpha = isDimmed ? 0.08 : 0.18;
+        ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);
+        ctx.fillStyle='#ff6b9d';ctx.globalAlpha=baseAlpha;ctx.fill();ctx.globalAlpha=1;
+        ctx.setLineDash([4,3]);
+        ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);
+        ctx.strokeStyle=isSelected?'#ff6b9d':isHovered?'#ff6b9dcc':'#ff6b9d88';
+        ctx.lineWidth=isSelected?2.5:1.5;
+        ctx.globalAlpha=isDimmed?0.25:1;ctx.stroke();ctx.globalAlpha=1;
+        ctx.setLineDash([]);
+        const innerSize=Math.max(10,Math.min(r*0.5,15));
+        ctx.font=`700 ${innerSize}px 'DM Mono',monospace`;
+        ctx.fillStyle='#ff6b9d';ctx.globalAlpha=isDimmed?0:0.8;
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(n._initials,n.x,n.y);ctx.globalAlpha=1;
+      } else {
+        ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);
+        ctx.fillStyle=nodeColor;ctx.globalAlpha=isDimmed?0.18:0.88;ctx.fill();ctx.globalAlpha=1;
+        ctx.strokeStyle=isSelected?nodeColor:isHovered?nodeColor+'99':nodeColor+'55';ctx.lineWidth=isSelected?3:2;
+        ctx.globalAlpha=isDimmed?0.18:1;ctx.stroke();ctx.globalAlpha=1;
+        const innerSize=Math.max(10,Math.min(r*0.5,15));
+        ctx.font=`700 ${innerSize}px 'DM Mono',monospace`;
+        ctx.fillStyle='#0d0f14';ctx.globalAlpha=isDimmed?0:0.75;
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(n._initials,n.x,n.y);ctx.globalAlpha=1;
+      }
+
+      if(isSelected){
+        ctx.beginPath();ctx.arc(n.x,n.y,r+10,0,Math.PI*2);
+        const grd=ctx.createRadialGradient(n.x,n.y,r,n.x,n.y,r+10);
+        grd.addColorStop(0,nodeColor+'55');grd.addColorStop(1,nodeColor+'00');
+        ctx.fillStyle=grd;ctx.fill();
+      }
+
+      if(!isDimmed){
+        const isLeft=n.type==='investor', isHybrid=n.type==='hybrid';
+        const lOff=Math.max(6,Math.min(14,r*0.65+4));const labelX=isHybrid?n.x+(r+lOff):(isLeft?n.x-(r+lOff):n.x+(r+lOff));
+        const align=isHybrid?'left':(isLeft?'right':'left');
+        ctx.font=font700_13;
+        ctx.fillStyle=isCrossNode?'#ff6b9d':(isHybrid?'#e8e6e0':nodeColor);
+        ctx.globalAlpha=isCrossNode?0.75:1;
+        ctx.textAlign=align;ctx.textBaseline='middle';
+        const lY1=n.y-sz.labelOffset*0.6; const lY2=n.y+sz.pctOffset*0.9;
+        // Truncate investor label so it never overflows the left edge of canvas
+        let line1 = n._line1;
+        if (isLeft) {
+          const maxW = labelX - 4; // available px before left edge
+          while (line1.length > 4 && ctx.measureText(line1).width > maxW) {
+            line1 = line1.slice(0, -1);
+          }
+          if (line1 !== n._line1) line1 = line1.trimEnd() + '…';
+        }
+        ctx.fillText(line1,labelX,lY1);
+        ctx.globalAlpha=1;
+        if(n.type==='investor'){
+          ctx.font=font500_11;ctx.fillStyle='#9ca3af';
+          ctx.textAlign=align;ctx.textBaseline='middle';
+          ctx.fillText(n._pctStr,labelX,lY2);
+        } else if(isHybrid){
+          ctx.font=font400_10;ctx.fillStyle='#9ca3af';
+          ctx.textAlign=align;ctx.textBaseline='middle';
+          ctx.fillText(n._issShort,labelX,lY2);
+        } else if(isCrossNode){
+          // Label kecil "via [hybrid]" di bawah nama
+          ctx.font=font400_10;ctx.fillStyle='#ff6b9d88';
+          ctx.textAlign=align;ctx.textBaseline='middle';
+          const hybridNode=nodes.find(x=>x.id===n._hybridOwnedBy);
+          if(hybridNode) ctx.fillText('via '+hybridNode.label,labelX,lY2);
+        } else if(n.issuerName){
+          ctx.font=font400_10;ctx.fillStyle='#6b7280';
+          ctx.textAlign=align;ctx.textBaseline='middle';
+          ctx.fillText(n._issShort,labelX,lY2);
+        }
+      }
+    });
+  } // end draw
+
+  // Run physics pre-settle: simulate N frames instantly, then draw once static
+  function preSettle(frames){
+    for(let i=0;i<frames;i++){
+      nodes.forEach(n=>{
+        const targetX = n._hybridOwnedBy && n._hybridOwnedTargetX != null
+          ? n._hybridOwnedTargetX
+          : (n.type==='investor'?invX:n.type==='hybrid'?W*0.5:compX);
+        n.vx+=(targetX-n.x)*0.12;
+        // simple repulsion between nodes
+        nodes.forEach(m=>{
+          if(m===n)return;
+          const dx=n.x-m.x,dy=n.y-m.y;
+          const d2=dx*dx+dy*dy;
+          const minD=(n.r+m.r)*2.0;
+          if(d2<minD*minD&&d2>0){
+            const d=Math.sqrt(d2);
+            const f=(minD-d)/minD*0.5;
+            n.vx+=dx/d*f; n.vy+=dy/d*f;
+          }
+        });
+        n.vx*=0.7; n.vy*=0.7;
+        n.x+=n.vx; n.y+=n.vy;
+        n.x=Math.max(n.r+10,Math.min(W-n.r-80,n.x));
+        n.y=Math.max(n.r+10,Math.min(H-n.r-10,n.y));
+      });
+    }
+  }
+  preSettle(60);
+
+  // ── Animation loop: runs while physics is active OR drag is ongoing ──
+  function loop(){
+    if(physicsActive) applyBuoyancy(selectedNode ? getConnectedIds(selectedNode.id) : null);
+    if(physicsActive || ovDragNode) draw();
+    animFrame = requestAnimationFrame(loop);
+  }
+  animFrame = requestAnimationFrame(loop);
+
+  function getHit(mx,my){let hit=null;nodes.forEach(n=>{const d=Math.sqrt((mx-n.x)**2+(my-n.y)**2);if(d<n.r+8)hit=n;});return hit;}
+
+  // ── Drag state (Overview) ──
+  let ovDragNode=null, ovDragOffX=0, ovDragOffY=0, ovDragMoved=false, ovDragStartX=0, ovDragStartY=0;
+
+  canvas.onmousedown=e=>{
+    if(e.button!==0) return;
+    const rect=canvas.getBoundingClientRect();
+    const mx=(e.clientX-rect.left)*(W/rect.width), my=(e.clientY-rect.top)*(H/rect.height);
+    const hit=getHit(mx,my);
+    if(hit){
+      ovDragNode=hit; ovDragOffX=mx-hit.x; ovDragOffY=my-hit.y;
+      ovDragMoved=false; ovDragStartX=mx; ovDragStartY=my;
+      canvas.style.cursor='grabbing';
+      e.preventDefault();
+    }
+  };
+
+  canvas.onmousemove=e=>{
+    const rect=canvas.getBoundingClientRect();
+    const mx=(e.clientX-rect.left)*(W/rect.width),my=(e.clientY-rect.top)*(H/rect.height);
+
+    if(ovDragNode){
+      const dx=mx-ovDragStartX, dy=my-ovDragStartY;
+      if(!ovDragMoved && Math.sqrt(dx*dx+dy*dy)>4) ovDragMoved=true;
+      if(ovDragMoved){
+        ovDragNode.x=Math.max(ovDragNode.r+10, Math.min(W-ovDragNode.r-80, mx-ovDragOffX));
+        ovDragNode.y=Math.max(ovDragNode.r+10, Math.min(H-ovDragNode.r-10, my-ovDragOffY));
+        ovDragNode.vx=0; ovDragNode.vy=0;
+        physicsActive=true; settleFrames=0;
+        document.getElementById('tooltip').style.display='none';
+        draw();
+        return;
+      }
+    }
+
+    const hit=getHit(mx,my);
+    const prev=hoveredNode;
+    hoveredNode=hit;
+    canvas.style.cursor=hit?'grab':'default';
+    const tooltip=document.getElementById('tooltip');
+    if(hit){
+      tooltip.style.display='block';
+      tooltip.style.left=(e.clientX-rect.left+14)+'px';
+      tooltip.style.top=(e.clientY-rect.top-24)+'px';
+      document.getElementById('ttName').textContent=hit.fullLabel;
+      if(hit.type==='investor'){
+        const cnt=[...new Set(allData.filter(r=>r['Investor Name']===hit.fullLabel).map(r=>r['Share Code']))].length;
+        document.getElementById('ttDetail').textContent=`Investor · ${cnt} saham · Max ${hit.maxPct.toFixed(2)}%`;
+      } else if(hit.type==='hybrid'){
+        document.getElementById('ttDetail').textContent=`Holding Company · Klik untuk detail`;
+      } else if(hit._hybridOwnedBy && !(document.getElementById('shareFilter').value && hit.id==='comp_'+document.getElementById('shareFilter').value)){
+        const hybridNode=nodes.find(x=>x.id===hit._hybridOwnedBy);
+        const viaLabel=hybridNode?hybridNode.label:hit._hybridOwnedBy;
+        document.getElementById('ttDetail').textContent=`Indirect Ownership via ${viaLabel} · Klik untuk detail`;
+      } else {
+        const cnt=edges.filter(e=>e.from===hit.id||e.to===hit.id).length;
+        document.getElementById('ttDetail').textContent=`Saham ${hit.issuerName||hit.label} · ${cnt} investor`;
+      }
+    } else {
+      tooltip.style.display='none';
+    }
+    if(prev!==hit) draw();
+  };
+
+  canvas.onmouseup=e=>{
+    if(!ovDragNode) return;
+    const wasDragged=ovDragMoved;
+    const node=ovDragNode;
+    ovDragNode=null; ovDragMoved=false;
+    if(!wasDragged){
+      if(selectedNode&&selectedNode.id===node.id){
+        selectedNode=null; closeDetailPanel();
+      } else {
+        selectedNode=node; openDetailPanel(node); highlightTableRows(node);
+      }
+      draw();
+    }
+    canvas.style.cursor=hoveredNode?'grab':'default';
+  };
+
+  canvas.onclick=e=>{
+    if(ovDragMoved) return;
+    const rect=canvas.getBoundingClientRect();
+    const mx=(e.clientX-rect.left)*(W/rect.width),my=(e.clientY-rect.top)*(H/rect.height);
+    const hit=getHit(mx,my);
+    if(!hit){ selectedNode=null; closeDetailPanel(); draw(); }
+  };
+
+  canvas.onmouseleave=()=>{
+    document.getElementById('tooltip').style.display='none';
+    hoveredNode=null;
+    if(ovDragNode){ ovDragNode=null; ovDragMoved=false; }
+    draw();
+  };
+}
+
+function closeDetailPanel(){document.getElementById('detailPanel').classList.remove('visible');document.getElementById('dpContentRow').style.display='none';document.getElementById('dpPropsCol').innerHTML='';document.getElementById('dpChartsCol').innerHTML='';document.getElementById('dpStats').innerHTML='';clearTableHighlight();}
+function openDetailPanel(node){
+  document.getElementById('detailPanel').classList.add('visible');
+  const dot=document.getElementById('dpDot');dot.className='dp-dot '+node.type;
+  dot.textContent=node.type==='investor'?'I':node.type==='hybrid'?'H':'C';
+  document.getElementById('dpTitle').textContent=node.fullLabel;
+  document.getElementById('dpType').textContent=node.type==='investor'?'INVESTOR':node.type==='hybrid'?'HOLDING COMPANY':'EMITEN';
+
+  const connectedEdges=edges.filter(e=>e.from===node.id||e.to===node.id);
+  const connectedNodeIds=[...new Set(connectedEdges.map(e=>e.from===node.id?e.to:e.from))];
+  const connectedNodes=connectedNodeIds.map(id=>nodes.find(n=>n.id===id)).filter(Boolean);
+
+  // ── Header stats badges ──
+  let statsHtml='';
+  if(node.type==='investor'){
+    const uniqueSaham=[...new Set(allData.filter(r=>r['Investor Name']===node.fullLabel).map(r=>r['Share Code']))].length;
+    statsHtml+=`<span class="dp-stat-badge"><span class="dp-stat-val">${uniqueSaham}</span>saham</span>`;
+  }else if(node.type==='hybrid'){
+    if(connectedEdges.length){
+      const totalPct=totalPctLatest(connectedEdges, node.label);
+      statsHtml+=`<span class="dp-stat-badge"><span class="dp-stat-val">${totalPct.toFixed(2)}%</span>total</span>`;
+    }
+    if(node.invName){
+      const uniqueSaham=[...new Set(allData.filter(r=>r['Investor Name']===node.invName).map(r=>r['Share Code']))].length;
+      statsHtml+=`<span class="dp-stat-badge" style="margin-left:4px;"><span class="dp-stat-val">${uniqueSaham}</span>invest</span>`;
+    }
+  }else{
+    statsHtml+=`<span class="dp-stat-badge"><span class="dp-stat-val">${connectedNodes.length}</span>investor</span>`;
+    if(connectedEdges.length){
+      const totalPct=totalPctLatest(connectedEdges, node.label);
+      statsHtml+=`<span class="dp-stat-badge" style="margin-left:4px;"><span class="dp-stat-val">${totalPct.toFixed(2)}%</span>total</span>`;
+    }
+  }
+  document.getElementById('dpStats').innerHTML=statsHtml;
+  document.getElementById('dpPropsCol').innerHTML='';
+
+  // ── Right column: Ownership History charts ──
+  const chartsHtml = buildOwnershipHistoryHTML(node);
+  document.getElementById('dpChartsCol').innerHTML = chartsHtml;
+
+  // Show the 2-col row
+  document.getElementById('dpContentRow').style.display = 'grid';
+
+  // Draw all mini charts after DOM is ready
+  setTimeout(() => {
+    drawAllMiniCharts(node);
+  }, 0);
+}
+
+function highlightTableRows(node){const label=node.fullLabel;document.querySelectorAll('.table-row').forEach(row=>{const iEl=row.querySelector('.investor-name'),sEl=row.querySelector('.share-code');let match=false;if(node.type==='investor'){match=iEl&&iEl.textContent===label;}else if(node.type==='hybrid'){match=(sEl&&sEl.textContent===node.label)||(node.invName&&iEl&&iEl.textContent===node.invName);}else{match=sEl&&sEl.textContent===label;}row.classList.toggle('highlighted',match);});const first=document.querySelector('.table-row.highlighted');if(first)first.scrollIntoView({behavior:'smooth',block:'nearest'});}
+function clearTableHighlight(){document.querySelectorAll('.table-row.highlighted').forEach(r=>r.classList.remove('highlighted'));}
+
+// ===== OWNERSHIP HISTORY CHART =====
+
+// Color palette for multiple investor lines
+const LINE_COLORS = ['#00d4aa','#8b7fff','#f5a623','#ff6b9d','#4fa3ff','#ff5e5e','#a3e635','#fb923c','#34d399','#c084fc'];
+
+function buildOwnershipHistoryHTML(node) {
+  if (node.type === 'investor') {
+    return buildInvestorChartHTML(node);
+  } else if (node.type === 'hybrid') {
+    return buildHybridChartHTML(node);
+  } else {
+    return buildShareLineChartHTML(node);
+  }
+}
+
+// For investor node: one mini bar chart per share, each share gets a unique color
+function buildInvestorChartHTML(node) {
+  const series = {};
+  allData.forEach(r => {
+    if (r['Investor Name'] !== node.fullLabel) return;
+    const k = r['Share Code'];
+    if (!series[k]) series[k] = { label: k, dates: {} };
+    series[k].dates[r['Date']] = parseFloat(r['Percentage']) || 0;
+  });
+  const keys = Object.keys(series);
+  if (!keys.length) return '<div style="padding:16px;color:var(--muted);font-size:12px;">Tidak ada data.</div>';
+  const months = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+  const year = '2026';
+  let html = `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-family:var(--mono);margin-bottom:12px;">Portofolio Saham ${year}</div><div class="oh-wrap">`;
+  keys.slice(0,12).forEach((k,idx)=>{
+    const s=series[k];
+    const color = LINE_COLORS[idx % LINE_COLORS.length];
+    const chartId=`ohCanvas_${idx}`;
+    const dataPoints=months.map(m=>{
+      const matched=Object.entries(s.dates).find(([d])=>{const p=new Date(d);return !isNaN(p)&&(p.getMonth()+1)===parseInt(m)&&String(p.getFullYear())===year;});
+      return matched?matched[1]:null;
+    });
+    if(!dataPoints.some(v=>v!==null))return;
+    const encoded=dataPoints.map(v=>v===null?'n':v.toFixed(4)).join(',');
+    html+=`<div style="margin-bottom:14px;"><div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;"></div><span style="font-size:11px;font-weight:700;color:var(--text);font-family:var(--mono);">Saham: ${s.label}</span></div><div class="oh-chart-area"><canvas class="oh-canvas" id="${chartId}" data-points="${encoded}" data-max="100" data-color="${color}" height="140"></canvas></div></div>`;
+  });
+  html+='</div>';
+  if(keys.length>12)html+=`<div style="font-size:10px;color:var(--muted);font-family:var(--mono);padding-top:4px;">+${keys.length-12} saham lainnya</div>`;
+  return html;
+}
+
+// For hybrid node: section 1 = saham yang dimiliki (portfolio),
+// section 2 = investor yang memiliki saham hybrid ini
+function buildHybridChartHTML(node) {
+  const shareCode = node.label;
+  const invName   = node.invName;   // name as investor (e.g. "BUMI RESOURCES TBK")
+  const months    = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+  const year      = '2026';
+
+  // ── Section 1: Saham yang dimiliki (investor side) ─────────────────────
+  const ownedData = {};
+  if (invName) {
+    allData.forEach(r => {
+      if (r['Investor Name'] !== invName) return;
+      const k = r['Share Code'];
+      if (k === shareCode) return; // skip self
+      if (!ownedData[k]) ownedData[k] = { label: k, issuer: r['Issuer Name'] || k, dates: {} };
+      ownedData[k].dates[r['Date']] = parseFloat(r['Percentage']) || 0;
+    });
+  }
+  const ownedKeys = Object.keys(ownedData);
+
+  // ── Section 2: Investor yang memiliki saham ini (company side) ──────────
+  const investorsOfShare = [...new Set(
+    allData.filter(r => r['Share Code'] === shareCode).map(r => r['Investor Name'])
+  )];
+
+  let html = '';
+
+  // ── SECTION 1 HTML ──────────────────────────────────────────────────────
+  if (ownedKeys.length > 0) {
+    html += `
+    <div style="margin-bottom:18px;">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;
+                  letter-spacing:.8px;font-family:var(--mono);margin-bottom:10px;
+                  display:flex;align-items:center;gap:8px;">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#e8e6e0;"></span>
+        Saham yang Dimiliki ${invName ? '— '+invName : ''} ${year}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;">`;
+
+    ownedKeys.forEach((k, idx) => {
+      const od = ownedData[k];
+      const months = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+      const year = '2026';
+      const sortedDates = Object.keys(od.dates).sort((a,b) => dateToNum(a) - dateToNum(b));
+      const latestPct   = od.dates[sortedDates[sortedDates.length - 1]] || 0;
+      const prevPct     = sortedDates.length > 1 ? od.dates[sortedDates[sortedDates.length - 2]] : null;
+      const diff        = prevPct !== null ? latestPct - prevPct : null;
+      const color       = LINE_COLORS[idx % LINE_COLORS.length];
+      const chartId     = `ohCanvas_owned_${idx}`;
+
+      const diffHtml = diff === null ? '' :
+        diff > 0  ? `<span style="font-size:9px;color:var(--teal);font-family:var(--mono);">▲${diff.toFixed(2)}%</span>` :
+        diff < 0  ? `<span style="font-size:9px;color:var(--red);font-family:var(--mono);">▼${Math.abs(diff).toFixed(2)}%</span>` :
+                    `<span style="font-size:9px;color:var(--muted);font-family:var(--mono);">—</span>`;
+
+      const issShort = od.issuer.length > 26 ? od.issuer.slice(0,26)+'…' : od.issuer;
+
+      // Build monthly data points for the mini chart
+      const dataPoints = months.map(m => {
+        const matched = Object.entries(od.dates).find(([d]) => {
+          const dmy = d.match(/(\d{1,2})[-\s]([A-Za-z]{3})[-\s](\d{4})/);
+          if (dmy) {
+            const mMap={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+            return String(parseInt(mMap[dmy[2]]||0)).padStart(2,'0')===m && dmy[3]===year;
+          }
+          const my = d.match(/^([A-Za-z]{3})\s*(\d{4})/);
+          if (my) {
+            const mMap={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+            return String(parseInt(mMap[my[1]]||0)).padStart(2,'0')===m && my[2]===year;
+          }
+          return false;
+        });
+        return matched ? matched[1] : null;
+      });
+      const encoded = dataPoints.map(v => v === null ? 'n' : parseFloat(v).toFixed(4)).join(',');
+
+      html += `
+        <div style="background:var(--surface2);border:0.5px solid ${color}44;border-radius:10px;
+                    padding:10px 14px;min-width:200px;flex:1;cursor:pointer;transition:border-color .15s;"
+             onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='${color}44'">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+            <div style="width:30px;height:30px;border-radius:7px;background:${color}20;border:0.5px solid ${color};
+                        display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <span style="font-size:8px;font-weight:700;color:${color};font-family:var(--mono);">${k.slice(0,4)}</span>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:12px;font-weight:700;color:var(--text);font-family:var(--mono);">${k}
+                <span style="font-size:13px;font-weight:700;color:${color};font-family:var(--mono);float:right;">${latestPct.toFixed(2)}%</span>
+              </div>
+              <div style="font-size:9px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;justify-content:space-between;">
+                <span>${issShort}</span>${diffHtml}
+              </div>
+            </div>
+          </div>
+          <div class="oh-chart-area" style="height:90px;">
+            <canvas class="oh-canvas" id="${chartId}" data-points="${encoded}" data-max="100" data-color="${color}" height="90"></canvas>
+          </div>
+        </div>`;
+    });
+
+    html += `</div></div>
+    <div style="height:0.5px;background:var(--border);margin-bottom:18px;"></div>`;
+  }
+
+  // ── SECTION 2 HTML ──────────────────────────────────────────────────────
+  html += `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;
+                       letter-spacing:.8px;font-family:var(--mono);margin-bottom:12px;
+                       display:flex;align-items:center;gap:8px;">
+    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--teal);"></span>
+    Kepemilikan ${shareCode} — Investor per Bulan ${year}
+  </div>
+  <div class="oh-wrap">`;
+
+  investorsOfShare.slice(0, 12).forEach((inv, idx) => {
+    const color   = LINE_COLORS[idx % LINE_COLORS.length];
+    const chartId = `ohCanvas_${idx + ownedKeys.length}`;
+
+    const dataPoints = months.map(m => {
+      const matched = allData.find(r => {
+        if (r['Investor Name'] !== inv || r['Share Code'] !== shareCode) return false;
+        const d = r['Date'];
+        const dmy = d.match(/(\d{1,2})[-\s]([A-Za-z]{3})[-\s](\d{4})/);
+        if (dmy) {
+          const mMap={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+          return String(parseInt(mMap[dmy[2]]||0)).padStart(2,'0')===m && dmy[3]===year;
+        }
+        const my = d.match(/^([A-Za-z]{3})\s*(\d{4})/);
+        if (my) {
+          const mMap={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+          return String(parseInt(mMap[my[1]]||0)).padStart(2,'0')===m && my[2]===year;
+        }
+        const iso = d.match(/^(\d{4})-(\d{2})/);
+        if (iso) return iso[2]===m && iso[1]===year;
+        return false;
+      });
+      return matched ? parseFloat(matched['Percentage'])||0 : null;
+    });
+
+    if (!dataPoints.some(v => v !== null)) return;
+    const encoded = dataPoints.map(v => v === null ? 'n' : v.toFixed(4)).join(',');
+    const invShort = inv.length > 36 ? inv.slice(0,36)+'…' : inv;
+
+    html += `<div style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;"></div>
+        <span style="font-size:11px;font-weight:700;color:var(--text);font-family:var(--mono);
+                     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px;">${invShort}</span>
+      </div>
+      <div class="oh-chart-area">
+        <canvas class="oh-canvas" id="${chartId}" data-points="${encoded}"
+                data-max="100" data-color="${color}" height="140"></canvas>
+      </div>
+    </div>`;
+  });
+
+  html += '</div>';
+  if (investorsOfShare.length > 12)
+    html += `<div style="font-size:10px;color:var(--muted);font-family:var(--mono);padding-top:4px;">~${investorsOfShare.length-12} investor lainnya</div>`;
+
+  return html;
+}
+
+// For company/hybrid node: one bar chart per investor (same style as investor portfolio charts)
+function buildShareLineChartHTML(node) {
+  const shareCode = node.label;
+  const months = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+  const year = '2026';
+
+  // All investors holding this share
+  const investors = [...new Set(allData.filter(r=>r['Share Code']===shareCode).map(r=>r['Investor Name']))];
+  if (!investors.length) return '<div style="padding:16px;color:var(--muted);font-size:12px;">Tidak ada data.</div>';
+
+  let html = `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-family:var(--mono);margin-bottom:12px;">Kepemilikan ${shareCode} — Investor per Bulan ${year}</div><div class="oh-wrap">`;
+
+  investors.slice(0,12).forEach((inv, idx) => {
+    const color = LINE_COLORS[idx % LINE_COLORS.length];
+    const chartId = `ohCanvas_${idx}`;
+
+    // Build 12-month data for this investor × this share
+    const dataPoints = months.map(m => {
+      const matched = allData.find(r => {
+        if (r['Investor Name'] !== inv || r['Share Code'] !== shareCode) return false;
+        const d = r['Date'];
+        // Try parsing date to get month/year
+        const dmy = d.match(/(\d{1,2})[-\s]([A-Za-z]{3})[-\s](\d{4})/);
+        if (dmy) {
+          const mMap={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+          return String(parseInt(mMap[dmy[2]]||0)).padStart(2,'0') === m && dmy[3] === year;
+        }
+        const my = d.match(/^([A-Za-z]{3})\s*(\d{4})/);
+        if (my) {
+          const mMap={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+          return String(parseInt(mMap[my[1]]||0)).padStart(2,'0') === m && my[2] === year;
+        }
+        const iso = d.match(/^(\d{4})-(\d{2})/);
+        if (iso) return iso[2] === m && iso[1] === year;
+        return false;
+      });
+      return matched ? parseFloat(matched['Percentage'])||0 : null;
+    });
+
+    if (!dataPoints.some(v => v !== null)) return;
+    const encoded = dataPoints.map(v => v === null ? 'n' : v.toFixed(4)).join(',');
+
+    html += `<div style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;"></div>
+        <span style="font-size:11px;font-weight:700;color:var(--text);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px;">${inv}</span>
+      </div>
+      <div class="oh-chart-area">
+        <canvas class="oh-canvas" id="${chartId}" data-points="${encoded}" data-max="100" data-color="${color}" height="140"></canvas>
+      </div>
+    </div>`;
+  });
+
+  html += '</div>';
+  if (investors.length > 12) html += `<div style="font-size:10px;color:var(--muted);font-family:var(--mono);padding-top:4px;">+${investors.length-12} investor lainnya</div>`;
+  return html;
+}
+
+function drawAllMiniCharts(node) {
+  const months = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+  const monthShort = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+
+  document.querySelectorAll('.oh-canvas').forEach(canvas => {
+    const raw = canvas.dataset.points.split(',');
+    const maxVal = parseFloat(canvas.dataset.max);
+    const color = canvas.dataset.color;
+    const dataPoints = raw.map(v => v === 'n' ? null : parseFloat(v));
+
+    const parent = canvas.parentElement;
+    const cssW = parent.clientWidth || 240;
+    const cssH = parent.clientHeight || 140;
+
+    // Fix blur: scale canvas by devicePixelRatio
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = cssW * dpr;
+    canvas.height = cssH * dpr;
+    canvas.style.width = cssW + 'px';
+    canvas.style.height = cssH + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, cssW, cssH);
+
+    const W = cssW, H = cssH;
+    const isSmall = H < 110;
+    const padLeft = isSmall ? 30 : 36, padRight = isSmall ? 36 : 42, padTop = isSmall ? 22 : 34, padBottom = isSmall ? 16 : 22;
+    const chartW = W - padLeft - padRight;
+    const chartH = H - padTop - padBottom;
+    const barW = Math.max(4, (chartW / 12) * 0.62);
+    const gap = chartW / 12;
+
+    // Grid lines
+    const gridLines = 3;
+    for (let i = 0; i <= gridLines; i++) {
+      const y = padTop + chartH - (i / gridLines) * chartH;
+      ctx.beginPath();
+      ctx.moveTo(padLeft, y); ctx.lineTo(W - padRight, y);
+      ctx.strokeStyle = '#2a2f3e'; ctx.lineWidth = 0.5;
+      ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
+      if (i > 0) {
+        const val = ((i / gridLines) * maxVal).toFixed(1);
+        ctx.fillStyle = '#6b7280';
+        ctx.font = '8px DM Mono, monospace';
+        ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+        ctx.fillText(val + '%', padLeft - 4, y);
+      }
+    }
+
+    // Collect bar positions for delta arrows
+    const barMeta = []; // { x, y, val, barH }
+
+    // Bars
+    dataPoints.forEach((val, i) => {
+      if (val === null) return;
+      const x = padLeft + i * gap + gap/2 - barW/2;
+      const barH = (val / maxVal) * chartH;
+      const y = padTop + chartH - barH;
+
+      barMeta.push({ x, y, val, barH, cx: x + barW/2, i });
+
+      // Bar gradient
+      const grad = ctx.createLinearGradient(x, y, x, y + barH);
+      grad.addColorStop(0, color + 'ff');
+      grad.addColorStop(1, color + '55');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      const rr = Math.min(3, barW/2);
+      ctx.moveTo(x + rr, y); ctx.lineTo(x + barW - rr, y);
+      ctx.quadraticCurveTo(x + barW, y, x + barW, y + rr);
+      ctx.lineTo(x + barW, y + barH); ctx.lineTo(x, y + barH);
+      ctx.lineTo(x, y + rr); ctx.quadraticCurveTo(x, y, x + rr, y); ctx.closePath();
+      ctx.fill();
+    });
+
+    // Percentage label above each bar
+    barMeta.forEach(b => {
+      const labelY = b.y - 3;
+      ctx.font = '700 8px DM Mono, monospace';
+      ctx.fillStyle = color;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText(b.val.toFixed(1) + '%', b.cx, labelY);
+    });
+
+    // Latest value label at right edge of chart (end-of-line style)
+    if (barMeta.length > 0) {
+      const last = barMeta[barMeta.length - 1];
+      const labelX = W - padRight + 4;
+      const labelY = last.y + last.barH / 2;
+      ctx.fillStyle = color;
+      ctx.font = '700 8.5px DM Mono, monospace';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      // Small connector tick
+      ctx.beginPath();
+      ctx.moveTo(last.x + barW, labelY);
+      ctx.lineTo(labelX - 2, labelY);
+      ctx.strokeStyle = color + '55';
+      ctx.lineWidth = 0.8;
+      ctx.setLineDash([2, 2]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillText(last.val.toFixed(1) + '%', labelX, labelY);
+    }
+
+    // Delta labels between consecutive bars
+    for (let b = 1; b < barMeta.length; b++) {
+      const prev = barMeta[b - 1];
+      const curr = barMeta[b];
+      const delta = curr.val - prev.val;
+      const sign = delta > 0 ? '+' : '';
+      const deltaStr = Math.abs(delta) < 0.001 ? '±0%' : sign + delta.toFixed(2) + '%';
+      const deltaColor = delta > 0 ? '#4ade80' : delta < 0 ? '#f87171' : '#6b7280';
+
+      // Position delta badge between the two bars, above the taller one
+      const midX = (prev.cx + curr.cx) / 2;
+      const topY = Math.min(prev.y, curr.y);
+      const badgeY = topY - 18;
+
+      // Arrow line connecting bar tops
+      ctx.beginPath();
+      ctx.moveTo(prev.cx, prev.y - 2);
+      ctx.lineTo(curr.cx, curr.y - 2);
+      ctx.strokeStyle = deltaColor + '55';
+      ctx.lineWidth = 0.8;
+      ctx.setLineDash([2, 2]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Arrowhead at curr side
+      const angle = Math.atan2(curr.y - prev.y, curr.cx - prev.cx);
+      ctx.beginPath();
+      ctx.moveTo(curr.cx, curr.y - 2);
+      ctx.lineTo(curr.cx - 5 * Math.cos(angle - 0.4), (curr.y - 2) - 5 * Math.sin(angle - 0.4));
+      ctx.lineTo(curr.cx - 5 * Math.cos(angle + 0.4), (curr.y - 2) - 5 * Math.sin(angle + 0.4));
+      ctx.closePath();
+      ctx.fillStyle = deltaColor + '88';
+      ctx.fill();
+
+      // Background pill for delta text
+      ctx.font = '700 7.5px DM Mono, monospace';
+      const tw = ctx.measureText(deltaStr).width;
+      const px = 3, py = 2;
+      ctx.fillStyle = delta > 0 ? '#4ade8025' : delta < 0 ? '#f8717125' : '#6b728025';
+      ctx.beginPath();
+      if(ctx.roundRect) ctx.roundRect(midX - tw/2 - px, badgeY - py - 7, tw + px*2, 7 + py*2, 3);
+      else ctx.rect(midX - tw/2 - px, badgeY - py - 7, tw + px*2, 7 + py*2);
+      ctx.fill();
+
+      // Delta text
+      ctx.fillStyle = deltaColor;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText(deltaStr, midX, badgeY);
+    }
+
+    // X-axis: always show all 12 months
+    dataPoints.forEach((val, i) => {
+      const hasData = val !== null;
+      const x = padLeft + i * gap + gap/2;
+      ctx.fillStyle = hasData ? '#e8eaf0' : '#4b5563';
+      ctx.font = `${hasData ? '700' : '400'} 8px DM Mono, monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(monthShort[i], x, H - padBottom + 4);
+    });
+  });
+}
+
+function buildTable(data){
+  const tbody=document.getElementById('tableBody');
+  if(!data.length){tbody.innerHTML='<div class="empty">Tidak ada data yang cocok</div>';return;}
+  const byKey={};
+  data.forEach(r=>{const k=r['Investor Name']+'|'+r['Share Code'];if(!byKey[k])byKey[k]={investor:r['Investor Name'],share:r['Share Code'],issuer:r['Issuer Name'],dates:{}};byKey[k].dates[r['Date']]=parseFloat(r['Percentage']);});
+  tbody.innerHTML=data.slice(0,200).map(r=>{
+    const k=r['Investor Name']+'|'+r['Share Code'];const entry=byKey[k];const dateVals=Object.entries(entry.dates).sort();
+    let changeHtml='<span class="change same">—</span>';
+    if(dateVals.length>=2){const diff=(dateVals[1][1]-dateVals[0][1]).toFixed(2);if(diff>0)changeHtml=`<span class="change up">+${diff}%</span>`;else if(diff<0)changeHtml=`<span class="change down">${diff}%</span>`;}
+    const isFeb=r['Date']&&r['Date'].includes('Feb');const dateClass=isFeb?'date-feb':'date-mar';
+    return `<div class="table-row"><div class="investor-name">${r['Investor Name']}</div><div><span class="share-code">${r['Share Code']}</span></div><div><span class="date-pill ${dateClass}">${r['Date']}</span></div><div class="pct">${parseFloat(r['Percentage']).toFixed(2)}%</div><div>${changeHtml}</div></div>`;
+  }).join('');
+}
+
+
+let _searchDebounce;
+let _renderDebounce;
+function debouncedRender(){
+  clearTimeout(_renderDebounce);
+  _renderDebounce=setTimeout(render, 150);
+}
+document.getElementById('searchInput').oninput=function(){
+  const val = this.value;
+  clearTimeout(_ovSuggestTimer);
+  _ovSuggestTimer = setTimeout(() => ovSuggestName(val), 80);
+  // Do NOT trigger render while user is still typing
+};
+document.getElementById('shareFilter').onchange=debouncedRender;
+document.getElementById('dateFilter').onchange=debouncedRender;
+
+// ===== GRAPH DATABASE ENGINE =====
+
+function getGDBFilteredData() {
+  let data = allData;
+  if (gdbFilterDateSet.size > 0) {
+    data = data.filter(r => gdbFilterDateSet.has(r['Date']));
+  }
+  if (gdbFilterNameSet.size > 0) {
+    const names = [...gdbFilterNameSet];
+    data = data.filter(r => names.some(n => r['Investor Name'].toLowerCase().includes(n.toLowerCase()) || r['Issuer Name'].toLowerCase().includes(n.toLowerCase())));
+  }
+  if (gdbFilterShareSet.size > 0) {
+    const codes = [...gdbFilterShareSet];
+    data = data.filter(r => codes.some(c => r['Share Code'].toLowerCase().includes(c.toLowerCase())));
+  }
+  return data;
+}
+
+function buildGDBGraph(sourceData) {
+  const data = sourceData || getGDBFilteredData();
+  const wrap = document.getElementById('gdbCanvasWrap');
+  const canvas = document.getElementById('gdbCanvas');
+  const W = wrap.clientWidth || 800;
+  const H = 600;
+  canvas.width = W; canvas.height = H;
+
+  const dates = [...new Set(data.map(r => r['Date']))].sort();
+  const febDate = dates[0];
+
+  // Init date filter: default to latest date
+  renderGDBDateChecklist(dates);
+
+  const investorMap = {};
+  const companyMap = {};
+  data.forEach(r => {
+    const inv = r['Investor Name'], sh = r['Share Code'], pct = parseFloat(r['Percentage'])||0;
+    if (!investorMap[inv]) investorMap[inv] = { maxPct: 0, shares: new Set() };
+    if (pct > investorMap[inv].maxPct) investorMap[inv].maxPct = pct;
+    investorMap[inv].shares.add(sh);
+    if (!companyMap[sh]) companyMap[sh] = { investors: new Set(), issuer: '' };
+    companyMap[sh].investors.add(inv);
+    if (!companyMap[sh].issuer) companyMap[sh].issuer = r['Issuer Name'] || '';
+  });
+
+  const NODE_LIMIT = 25;
+  const allInvestorNames = Object.keys(investorMap);
+  const allCompanyNames = Object.keys(companyMap);
+
+  // Sort investors by maxPct descending, companies by investor count descending
+  const sortedInvestors = allInvestorNames.sort((a, b) => investorMap[b].maxPct - investorMap[a].maxPct);
+  const sortedCompanies = allCompanyNames.sort((a, b) => companyMap[b].investors.size - companyMap[a].investors.size);
+
+  // Distribute limit: up to 15 investors, rest for companies, max 25 total
+  const maxInv = Math.min(15, sortedInvestors.length);
+  const maxComp = Math.min(NODE_LIMIT - maxInv, sortedCompanies.length);
+  const investorNames = sortedInvestors.slice(0, maxInv);
+  const companyNames = sortedCompanies.slice(0, maxComp);
+
+  // Show info if data was trimmed
+  const totalNodes = allInvestorNames.length + allCompanyNames.length;
+  const shownNodes = investorNames.length + companyNames.length;
+  let limitInfo = document.getElementById('gdbLimitInfo');
+  if (!limitInfo) {
+    limitInfo = document.createElement('div');
+    limitInfo.id = 'gdbLimitInfo';
+    limitInfo.style.cssText = 'font-size:11px;color:var(--muted);font-family:var(--mono);padding:6px 14px 0;';
+    const legend = document.querySelector('.gdb-legend');
+    if (legend) legend.parentNode.insertBefore(limitInfo, legend);
+  }
+  if (totalNodes > NODE_LIMIT) {
+    limitInfo.textContent = `Menampilkan ${shownNodes} dari ${totalNodes} node (${investorNames.length} investor, ${companyNames.length} saham). Gunakan filter untuk mempersempit data.`;
+    limitInfo.style.display = 'block';
+  } else {
+    limitInfo.style.display = 'none';
+  }
+
+  gdbNodes = [];
+  // Lay out in circular clusters
+  const cx = W / 2, cy = H / 2;
+
+  // ── Detect hybrid nodes (investor whose name matches an issuer) ──
+  const issuerToCode = {};
+  data.forEach(r => {
+    if (r['Issuer Name'] && r['Share Code'])
+      issuerToCode[r['Issuer Name'].trim().toLowerCase()] = r['Share Code'];
+  });
+  const hybridMap = {}; // invName → shareCode
+  allInvestorNames.forEach(invName => {
+    const match = Object.entries(issuerToCode).find(([iss]) =>
+      invName.trim().toLowerCase().includes(iss.slice(0, 8).toLowerCase()) ||
+      iss.toLowerCase().includes(invName.trim().toLowerCase().slice(0, 8))
+    );
+    if (match) hybridMap[invName] = match[1];
+  });
+  const hybridInvNames = new Set(Object.keys(hybridMap));
+  const hybridShareCodes = new Set(Object.values(hybridMap));
+
+  // Pure investors (not hybrid)
+  const pureInvestorNames = investorNames.filter(n => !hybridInvNames.has(n));
+  // Pure companies (not hybrid)
+  const pureCompanyNames = companyNames.filter(c => !hybridShareCodes.has(c));
+  // Hybrid entries (unique by share code, limited to those in our node budget)
+  const hybridEntries = Object.entries(hybridMap).filter(([inv]) => investorNames.includes(inv) || companyNames.includes(hybridMap[inv]));
+
+  // Investors on inner ring
+  pureInvestorNames.forEach((name, i) => {
+    const angle = (i / Math.max(pureInvestorNames.length, 1)) * Math.PI * 2;
+    const radius = Math.min(W, H) * 0.28;
+    const maxPct = investorMap[name].maxPct;
+    const nr = Math.max(10, Math.min(32, maxPct * 1.4));
+    gdbNodes.push({
+      id: 'inv_' + name, label: name, fullLabel: name, type: 'investor',
+      x: cx + Math.cos(angle) * radius + (Math.random() - 0.5) * 30,
+      y: cy + Math.sin(angle) * radius + (Math.random() - 0.5) * 30,
+      vx: 0, vy: 0, r: nr, maxPct, shares: [...investorMap[name].shares]
+    });
+  });
+
+  // Companies on outer ring
+  pureCompanyNames.forEach((sh, i) => {
+    const angle = (i / Math.max(pureCompanyNames.length, 1)) * Math.PI * 2 + Math.PI / Math.max(pureCompanyNames.length, 1);
+    const radius = Math.min(W, H) * 0.42;
+    gdbNodes.push({
+      id: 'comp_' + sh, label: sh, fullLabel: sh, type: 'company',
+      x: cx + Math.cos(angle) * radius + (Math.random() - 0.5) * 20,
+      y: cy + Math.sin(angle) * radius + (Math.random() - 0.5) * 20,
+      vx: 0, vy: 0, r: 16, issuer: companyMap[sh].issuer
+    });
+  });
+
+  // Hybrid nodes at mid-radius, spread around center
+  hybridEntries.forEach(([invName, shareCode], i) => {
+    const angle = (i / Math.max(hybridEntries.length, 1)) * Math.PI * 2 + Math.PI / 4;
+    const radius = Math.min(W, H) * 0.34;
+    const maxPct = investorMap[invName]?.maxPct || 0;
+    const nr = Math.max(14, Math.min(32, 14 + (maxPct / 100) * 24));
+    const issuer = companyMap[shareCode]?.issuer || '';
+    gdbNodes.push({
+      id: 'comp_' + shareCode,
+      label: shareCode, fullLabel: shareCode,
+      type: 'hybrid',
+      invName, issuer,
+      x: cx + Math.cos(angle) * radius + (Math.random() - 0.5) * 20,
+      y: cy + Math.sin(angle) * radius + (Math.random() - 0.5) * 20,
+      vx: 0, vy: 0, r: nr, maxPct,
+      shares: [...(investorMap[invName]?.shares || [])]
+    });
+  });
+
+  gdbEdges = [];
+  data.forEach(r => {
+    // Resolve investor id: if this investor is hybrid, use comp_ id
+    const invId = hybridInvNames.has(r['Investor Name'])
+      ? 'comp_' + hybridMap[r['Investor Name']]
+      : 'inv_' + r['Investor Name'];
+    const compId = 'comp_' + r['Share Code'];
+
+    const invInGraph = gdbNodes.find(n => n.id === invId);
+    const compInGraph = gdbNodes.find(n => n.id === compId);
+    if (!invInGraph || !compInGraph) return;
+    // Skip self-loop (hybrid investing in its own share)
+    if (invId === compId) return;
+
+    const isFeb = r['Date'] === febDate;
+    // Avoid duplicate edges
+    const already = gdbEdges.find(e => e.from === invId && e.to === compId && e.isFeb === isFeb);
+    if (!already) {
+      gdbEdges.push({ from: invId, to: compId, pct: parseFloat(r['Percentage']), isFeb, color: isFeb ? '#00d4aa' : '#8b7fff' });
+    }
+  });
+
+  // Fit view
+  gdbZoomLevel = 1; gdbOffsetX = 0; gdbOffsetY = 0;
+  cancelAnimationFrame(gdbAnimFrame);
+  startGDBLoop();
+  setupGDBInteraction();
+}
+
+function startGDBLoop() {
+  const canvas = document.getElementById('gdbCanvas');
+  const ctx = canvas.getContext('2d');
+
+  function loop() {
+    gdbLoopT += 0.016;
+    if (gdbPhysics) applyForces();
+    drawGDB(ctx, canvas.width, canvas.height);
+    gdbAnimFrame = requestAnimationFrame(loop);
+  }
+  cancelAnimationFrame(gdbAnimFrame);
+  loop();
+}
+
+function applyForces() {
+  const W = document.getElementById('gdbCanvas').width;
+  const H = document.getElementById('gdbCanvas').height;
+  const cx = W / 2, cy = H / 2;
+  const damping = 0.85, repulsion = 1800, springLen = 120, springK = 0.04, centerK = 0.008;
+
+  gdbNodes.forEach(n => {
+    let fx = 0, fy = 0;
+    // Repulsion
+    gdbNodes.forEach(m => {
+      if (m.id === n.id) return;
+      const dx = n.x - m.x, dy = n.y - m.y;
+      const dist = Math.max(1, Math.sqrt(dx*dx + dy*dy));
+      const force = repulsion / (dist * dist);
+      fx += (dx / dist) * force;
+      fy += (dy / dist) * force;
+    });
+    // Spring attraction (edges)
+    gdbEdges.forEach(e => {
+      let other = null;
+      if (e.from === n.id) other = gdbNodes.find(m => m.id === e.to);
+      else if (e.to === n.id) other = gdbNodes.find(m => m.id === e.from);
+      if (!other) return;
+      const dx = other.x - n.x, dy = other.y - n.y;
+      const dist = Math.max(1, Math.sqrt(dx*dx + dy*dy));
+      const force = springK * (dist - springLen);
+      fx += (dx / dist) * force;
+      fy += (dy / dist) * force;
+    });
+    // Center gravity
+    fx += (cx - n.x) * centerK;
+    fy += (cy - n.y) * centerK;
+    n.vx = (n.vx + fx) * damping;
+    n.vy = (n.vy + fy) * damping;
+    if (!gdbDragging || gdbDragging.id !== n.id) {
+      n.x += n.vx;
+      n.y += n.vy;
+    }
+  });
+}
+
+function drawGDB(ctx, W, H) {
+  ctx.clearRect(0, 0, W, H);
+  ctx.save();
+  ctx.translate(gdbOffsetX + W/2, gdbOffsetY + H/2);
+  ctx.scale(gdbZoomLevel, gdbZoomLevel);
+  ctx.translate(-W/2, -H/2);
+
+  const showLabels = document.getElementById('showLabels').checked;
+  const showWeights = document.getElementById('showWeights').checked;
+
+  // Filter by mode
+  const visibleNodes = gdbNodes.filter(n => {
+    if (gdbGraphMode === 'investors') return n.type === 'investor' || n.type === 'hybrid';
+    if (gdbGraphMode === 'companies') return n.type === 'company' || n.type === 'hybrid';
+    return true;
+  });
+  const visibleIds = new Set(visibleNodes.map(n => n.id));
+
+  // Draw edges
+  gdbEdges.forEach(e => {
+    if (!visibleIds.has(e.from) || !visibleIds.has(e.to)) return;
+    const fn = gdbNodes.find(n => n.id === e.from);
+    const tn = gdbNodes.find(n => n.id === e.to);
+    if (!fn || !tn) return;
+
+    const isSelected = gdbSelectedNode && (e.from === gdbSelectedNode.id || e.to === gdbSelectedNode.id);
+    const isPath = gdbPathNodeIds.size > 0 && gdbPathNodeIds.has(e.from) && gdbPathNodeIds.has(e.to);
+    const isCoInv = gdbCoInvNodeIds.size > 0 && (gdbCoInvNodeIds.has(e.from) || gdbCoInvNodeIds.has(e.to));
+    const isDimmed = (gdbSelectedNode || gdbHighlightedNodeIds.size > 0 || gdbPathNodeIds.size > 0) && !isSelected && !isPath && !isCoInv;
+
+    ctx.beginPath();
+    ctx.moveTo(fn.x, fn.y);
+    const mx = (fn.x + tn.x) / 2, my = (fn.y + tn.y) / 2;
+    ctx.lineTo(tn.x, tn.y);
+    ctx.strokeStyle = isPath ? '#4fa3ff' : (isCoInv ? '#ff6b9d' : e.color);
+    ctx.lineWidth = isPath ? 3 : (isSelected ? Math.max(1.5, e.pct * 0.15) : 1);
+    ctx.globalAlpha = isDimmed ? 0.05 : (isPath ? 0.95 : (isSelected ? 0.85 : 0.3));
+    ctx.stroke();
+
+    // Arrow head
+    const dx = tn.x - fn.x, dy = tn.y - fn.y;
+    const len = Math.sqrt(dx*dx + dy*dy);
+    if (len < 1) { ctx.globalAlpha = 1; return; }
+    const ax = tn.x - (tn.r + 5) * dx/len, ay = tn.y - (tn.r + 5) * dy/len;
+    const angle = Math.atan2(dy, dx);
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax - 6*Math.cos(angle-0.4), ay - 6*Math.sin(angle-0.4));
+    ctx.lineTo(ax - 6*Math.cos(angle+0.4), ay - 6*Math.sin(angle+0.4));
+    ctx.closePath();
+    ctx.fillStyle = isPath ? '#4fa3ff' : (isCoInv ? '#ff6b9d' : e.color);
+    ctx.fill();
+
+    if ((showWeights && isSelected) || isPath) {
+      ctx.fillStyle = isPath ? '#4fa3ff' : e.color;
+      ctx.globalAlpha = 0.9;
+      ctx.font = `500 9px 'DM Mono',monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(e.pct.toFixed(1)+'%', mx, my - 8);
+    }
+    ctx.globalAlpha = 1;
+  });
+
+  // Draw nodes
+  visibleNodes.forEach(n => {
+    const isSelected = gdbSelectedNode && gdbSelectedNode.id === n.id;
+    const isHighlighted = gdbHighlightedNodeIds.has(n.id);
+    const isExpanded = gdbExpandedNodeIds.has(n.id); // newly spawned by expand
+    const isHovered = gdbHoveredNode && gdbHoveredNode.id === n.id;
+    const isDimmed = gdbSelectedNode && !isSelected && !isHighlighted;
+
+    let nodeColor = n.type === 'investor' ? '#f5a623' : n.type === 'hybrid' ? '#e8e6e0' : '#00d4aa';
+
+    // Pulsing dashed ring for expanded nodes
+    if (isExpanded && !isSelected) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r + 7, 0, Math.PI * 2);
+      ctx.strokeStyle = nodeColor + 'aa';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.lineDashOffset = -gdbLoopT * 10;
+      ctx.globalAlpha = 0.7;
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+
+    // Glow for selected or highlighted
+    if (isSelected || isHighlighted) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r + 10, 0, Math.PI * 2);
+      const grd = ctx.createRadialGradient(n.x, n.y, n.r, n.x, n.y, n.r + 10);
+      grd.addColorStop(0, nodeColor + '60');
+      grd.addColorStop(1, nodeColor + '00');
+      ctx.fillStyle = grd;
+      ctx.fill();
+    }
+
+    if (isHovered && !isSelected) {
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 5, 0, Math.PI * 2);
+      ctx.strokeStyle = nodeColor + '80'; ctx.lineWidth = 2; ctx.stroke();
+    }
+
+    if (n.type === 'hybrid') {
+      // Off-white fill
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      ctx.fillStyle = '#e8e6e0';
+      ctx.globalAlpha = isDimmed ? 0.15 : 0.92; ctx.fill(); ctx.globalAlpha = 1;
+      // Inner ring
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r - 3, 0, Math.PI * 2);
+      ctx.strokeStyle = '#0d0f1430'; ctx.lineWidth = 1.5;
+      ctx.globalAlpha = isDimmed ? 0.1 : 0.5; ctx.stroke(); ctx.globalAlpha = 1;
+      // Border
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      ctx.strokeStyle = isSelected ? '#e8e6e0' : '#e8e6e070';
+      ctx.lineWidth = isSelected ? 2.5 : 2;
+      ctx.globalAlpha = isDimmed ? 0.15 : 1; ctx.stroke(); ctx.globalAlpha = 1;
+      // Initials
+      const innerSize = Math.max(8, Math.min(n.r * 0.52, 13));
+      ctx.font = `700 ${innerSize}px 'DM Mono',monospace`;
+      ctx.fillStyle = '#1a1c24'; ctx.globalAlpha = isDimmed ? 0 : 0.85;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(n.label.slice(0, 3), n.x, n.y); ctx.globalAlpha = 1;
+    } else {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      ctx.fillStyle = nodeColor;
+      ctx.globalAlpha = isDimmed ? 0.15 : (isSelected ? 1 : 0.85);
+      ctx.fill();
+      ctx.strokeStyle = isSelected ? nodeColor : (isExpanded ? nodeColor + 'cc' : nodeColor + '60');
+      ctx.lineWidth = isSelected ? 2.5 : (isExpanded ? 2 : 1.5);
+      ctx.globalAlpha = isDimmed ? 0.15 : 1;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      // Initials inside
+      const initials = n.type === 'investor'
+        ? n.fullLabel.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()
+        : n.label.slice(0,3);
+      const innerSize = Math.max(8, Math.min(n.r * 0.5, 13));
+      ctx.font = `700 ${innerSize}px 'DM Mono',monospace`;
+      ctx.fillStyle = '#0d0f14'; ctx.globalAlpha = isDimmed ? 0 : 0.7;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(initials, n.x, n.y); ctx.globalAlpha = 1;
+    }
+
+    // Label below node
+    if (showLabels) {
+      const lbl = n.label.length > 12 ? n.label.slice(0, 12) + '…' : n.label;
+      ctx.fillStyle = n.type === 'hybrid' ? (isDimmed ? '#6b7280' : '#e8e6e0') : (isDimmed ? '#6b7280' : '#e8eaf0');
+      ctx.font = `${isSelected ? '600' : '500'} 10px 'DM Mono',monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(lbl, n.x, n.y + n.r + 3);
+      // Sub-label for hybrid
+      if (n.type === 'hybrid' && !isDimmed) {
+        ctx.font = `400 8.5px 'DM Mono',monospace`;
+        ctx.fillStyle = '#9ca3af';
+        ctx.fillText('hybrid', n.x, n.y + n.r + 14);
+      }
+    }
+  });
+
+  ctx.restore();
+}
+
+function setupGDBInteraction() {
+  const canvas = document.getElementById('gdbCanvas');
+  let panStart = null;
+
+  function worldPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const W = canvas.width, H = canvas.height;
+    const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+    return {
+      x: (mx - gdbOffsetX - W/2) / gdbZoomLevel + W/2,
+      y: (my - gdbOffsetY - H/2) / gdbZoomLevel + H/2
+    };
+  }
+
+  function hitTest(pos) {
+    let hit = null;
+    gdbNodes.forEach(n => {
+      const d = Math.sqrt((pos.x-n.x)**2 + (pos.y-n.y)**2);
+      if (d < n.r + 6) hit = n;
+    });
+    return hit;
+  }
+
+  canvas.onmousedown = e => {
+    const pos = worldPos(e);
+    const hit = hitTest(pos);
+    if (hit) {
+      gdbDragging = hit;
+      hit.vx = 0; hit.vy = 0;
+    } else {
+      panStart = { x: e.clientX - gdbOffsetX, y: e.clientY - gdbOffsetY };
+      canvas.classList.add('panning');
+    }
+  };
+
+  canvas.onmousemove = e => {
+    if (gdbDragging) {
+      const pos = worldPos(e);
+      gdbDragging.x = pos.x; gdbDragging.y = pos.y;
+      gdbDragging.vx = 0; gdbDragging.vy = 0;
+    } else if (panStart) {
+      gdbOffsetX = e.clientX - panStart.x;
+      gdbOffsetY = e.clientY - panStart.y;
+    } else {
+      const pos = worldPos(e);
+      const hit = hitTest(pos);
+      gdbHoveredNode = hit;
+      canvas.classList.toggle('hovering', !!hit);
+      const tooltip = document.getElementById('gdbTooltip');
+      const rect = canvas.getBoundingClientRect();
+      if (hit) {
+        tooltip.style.display = 'block';
+        tooltip.style.left = (e.clientX - rect.left + 12) + 'px';
+        tooltip.style.top = (e.clientY - rect.top - 20) + 'px';
+        document.getElementById('gdbTtName').textContent = hit.fullLabel;
+        document.getElementById('gdbTtDetail').textContent = hit.type === 'investor'
+          ? `Max: ${hit.maxPct.toFixed(2)}% · ${hit.shares ? hit.shares.length : '?'} saham`
+          : hit.type === 'hybrid'
+            ? `${hit.issuer || hit.label} · Investor & Perusahaan · klik detail`
+            : `${hit.issuer || 'Perusahaan'} · klik detail`;
+      } else {
+        tooltip.style.display = 'none';
+      }
+    }
+  };
+
+  canvas.onmouseup = e => {
+    if (gdbDragging) { gdbDragging = null; return; }
+    if (panStart) { panStart = null; canvas.classList.remove('panning'); return; }
+  };
+
+  canvas.onclick = e => {
+    if (gdbDragging) return;
+    const pos = worldPos(e);
+    const hit = hitTest(pos);
+    if (hit) {
+      if (gdbSelectedNode && gdbSelectedNode.id === hit.id) {
+        // Second click on same node = collapse its expanded children
+        collapseNode(hit);
+        gdbSelectedNode = null;
+        gdbHighlightedNodeIds = new Set();
+        document.getElementById('gdbStatus').textContent = '— node dipilih';
+        document.getElementById('gdbNodeInfo').style.display = 'none';
+      } else {
+        // First click = expand + show info
+        expandNode(hit);
+        selectGDBNode(hit);
+      }
+      document.getElementById('gdbTooltip').style.display = 'none';
+    } else {
+      gdbSelectedNode = null;
+      gdbHighlightedNodeIds = new Set();
+      document.getElementById('gdbStatus').textContent = '— node dipilih';
+      document.getElementById('gdbNodeInfo').style.display = 'none';
+    }
+  };
+
+  canvas.onwheel = e => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.15 : 0.87;
+    gdbZoom(factor);
+  };
+
+  canvas.onmouseleave = () => {
+    document.getElementById('gdbTooltip').style.display = 'none';
+    gdbHoveredNode = null;
+    if (gdbDragging) gdbDragging = null;
+    if (panStart) { panStart = null; canvas.classList.remove('panning'); }
+  };
+}
+
+function selectGDBNode(node) {
+  gdbSelectedNode = node;
+  const connIds = new Set();
+  gdbEdges.forEach(e => {
+    if (e.from === node.id) connIds.add(e.to);
+    if (e.to === node.id) connIds.add(e.from);
+  });
+  gdbHighlightedNodeIds = connIds;
+  document.getElementById('gdbStatus').textContent = node.fullLabel;
+  showGDBNodeInfo(node);
+}
+
+// ===== NEO4J-STYLE EXPAND / COLLAPSE =====
+
+function getDateInfo() {
+  const dates = [...new Set(allData.map(r => r['Date']))].sort((a,b)=>dateToNum(a)-dateToNum(b));
+  return { febDate: dates[0], dates };
+}
+
+function expandNode(node) {
+  const { febDate } = getDateInfo();
+  const canvas = document.getElementById('gdbCanvas');
+  const W = canvas.width, H = canvas.height;
+
+  if (node.type === 'investor') {
+    // Expand: add all share nodes owned by this investor
+    const ownedShares = [...new Set(
+      allData.filter(r => r['Investor Name'] === node.fullLabel).map(r => r['Share Code'])
+    )];
+
+    let addedCount = 0;
+    ownedShares.forEach((code, i) => {
+      if (gdbNodes.find(n => n.id === 'comp_' + code)) {
+        // Already exists — just ensure edge exists
+      } else {
+        // Spawn new node in a fan around the investor
+        const totalAngle = Math.PI * 1.6;
+        const startAngle = -totalAngle / 2 - Math.PI / 2;
+        const angle = ownedShares.length === 1
+          ? -Math.PI / 2
+          : startAngle + (i / (ownedShares.length - 1)) * totalAngle;
+        const dist = 130 + (addedCount % 3) * 30;
+        const issuer = (allData.find(r => r['Share Code'] === code) || {})['Issuer Name'] || '';
+        const newNode = {
+          id: 'comp_' + code, label: code, fullLabel: code, type: 'company',
+          x: node.x + Math.cos(angle) * dist,
+          y: node.y + Math.sin(angle) * dist,
+          vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2,
+          r: 16, issuer,
+          expandedBy: node.id  // track which parent spawned this
+        };
+        gdbNodes.push(newNode);
+        gdbExpandedNodeIds.add(newNode.id);
+        addedCount++;
+      }
+
+      // Ensure edge exists
+      const compNode = gdbNodes.find(n => n.id === 'comp_' + code);
+      if (compNode) {
+        const already = gdbEdges.find(e =>
+          (e.from === node.id && e.to === compNode.id) ||
+          (e.to === node.id && e.from === compNode.id)
+        );
+        if (!already) {
+          const row = allData.find(r => r['Investor Name'] === node.fullLabel && r['Share Code'] === code);
+          if (row) {
+            const isFeb = row['Date'] === febDate;
+            gdbEdges.push({
+              from: node.id, to: compNode.id,
+              pct: parseFloat(row['Percentage']) || 0, isFeb,
+              color: isFeb ? '#00d4aa' : '#8b7fff',
+              expandedBy: node.id
+            });
+          }
+        }
+      }
+    });
+
+  } else if (node.type === 'hybrid') {
+    // Hybrid: expand both — investors who own this share, AND shares this entity invests in
+    const spawnTargets = [];
+
+    // Side 1: investors who hold this share (exclude self / already-a-hybrid)
+    const ownerNames = [...new Set(allData.filter(r => r['Share Code'] === node.label).map(r => r['Investor Name']))];
+    ownerNames.forEach((invName, i) => {
+      spawnTargets.push({ kind: 'investor', name: invName, idx: i, total: ownerNames.length, side: 'left' });
+    });
+
+    // Side 2: shares this entity (as investor) owns
+    const ownedCodes = node.invName
+      ? [...new Set(allData.filter(r => r['Investor Name'] === node.invName && r['Share Code'] !== node.label).map(r => r['Share Code']))]
+      : [];
+    ownedCodes.forEach((code, i) => {
+      spawnTargets.push({ kind: 'company', code, idx: i, total: ownedCodes.length, side: 'right' });
+    });
+
+    spawnTargets.forEach(t => {
+      if (t.kind === 'investor') {
+        const nodeId = 'inv_' + t.name;
+        if (!gdbNodes.find(n => n.id === nodeId)) {
+          const angle = -Math.PI + (t.idx / Math.max(t.total - 1, 1)) * Math.PI;
+          const dist = 150 + (t.idx % 3) * 25;
+          let maxPct = 0; const shares = new Set();
+          allData.forEach(r => { if (r['Investor Name'] !== t.name) return; const p = parseFloat(r['Percentage'])||0; if(p>maxPct) maxPct=p; shares.add(r['Share Code']); });
+          gdbNodes.push({ id: nodeId, label: t.name.split(' ').slice(0,2).join(' '), fullLabel: t.name, type: 'investor', x: node.x + Math.cos(angle)*dist, y: node.y + Math.sin(angle)*dist, vx:(Math.random()-.5)*2, vy:(Math.random()-.5)*2, r: Math.max(10,Math.min(32,maxPct*1.4)), maxPct, shares:[...shares], expandedBy: node.id });
+          gdbExpandedNodeIds.add(nodeId);
+        }
+        const invNode = gdbNodes.find(n => n.id === nodeId);
+        if (invNode && !gdbEdges.find(e => (e.from===nodeId&&e.to===node.id)||(e.to===nodeId&&e.from===node.id))) {
+          const row = allData.find(r => r['Investor Name']===t.name && r['Share Code']===node.label);
+          if (row) { const isFeb=row['Date']===febDate; gdbEdges.push({ from:nodeId, to:node.id, pct:parseFloat(row['Percentage'])||0, isFeb, color:isFeb?'#00d4aa':'#8b7fff', expandedBy:node.id }); }
+        }
+      } else {
+        const nodeId = 'comp_' + t.code;
+        if (!gdbNodes.find(n => n.id === nodeId)) {
+          const angle = (t.idx / Math.max(t.total - 1, 1)) * Math.PI;
+          const dist = 150 + (t.idx % 3) * 25;
+          const issuer = (allData.find(r => r['Share Code']===t.code)||{})['Issuer Name']||'';
+          gdbNodes.push({ id: nodeId, label: t.code, fullLabel: t.code, type: 'company', x: node.x+Math.cos(angle)*dist, y: node.y+Math.sin(angle)*dist, vx:(Math.random()-.5)*2, vy:(Math.random()-.5)*2, r:16, issuer, expandedBy:node.id });
+          gdbExpandedNodeIds.add(nodeId);
+        }
+        const compNode = gdbNodes.find(n => n.id === nodeId);
+        if (compNode && !gdbEdges.find(e => (e.from===node.id&&e.to===nodeId)||(e.to===node.id&&e.from===nodeId))) {
+          const row = allData.find(r => r['Investor Name']===(node.invName||node.label) && r['Share Code']===t.code);
+          if (row) { const isFeb=row['Date']===febDate; gdbEdges.push({ from:node.id, to:nodeId, pct:parseFloat(row['Percentage'])||0, isFeb, color:isFeb?'#00d4aa':'#8b7fff', expandedBy:node.id }); }
+        }
+      }
+    });
+
+  } else {
+    // Expand: add all investor nodes owning this share
+    const ownerNames = [...new Set(
+      allData.filter(r => r['Share Code'] === node.fullLabel).map(r => r['Investor Name'])
+    )];
+
+    ownerNames.forEach((invName, i) => {
+      if (!gdbNodes.find(n => n.id === 'inv_' + invName)) {
+        const totalAngle = Math.PI * 1.6;
+        const startAngle = -totalAngle / 2 - Math.PI / 2;
+        const angle = ownerNames.length === 1
+          ? -Math.PI / 2
+          : startAngle + (i / (ownerNames.length - 1)) * totalAngle;
+        const dist = 140 + (i % 3) * 25;
+        let maxPct = 0;
+        const shares = new Set();
+        allData.forEach(r => {
+          if (r['Investor Name'] !== invName) return;
+          const pct = parseFloat(r['Percentage']) || 0;
+          if (pct > maxPct) maxPct = pct;
+          shares.add(r['Share Code']);
+        });
+        const nr = Math.max(10, Math.min(32, maxPct * 1.4));
+        const newNode = {
+          id: 'inv_' + invName,
+          label: invName.split(' ').slice(0,2).join(' '),
+          fullLabel: invName, type: 'investor',
+          x: node.x + Math.cos(angle) * dist,
+          y: node.y + Math.sin(angle) * dist,
+          vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2,
+          r: nr, maxPct, shares: [...shares],
+          expandedBy: node.id
+        };
+        gdbNodes.push(newNode);
+        gdbExpandedNodeIds.add(newNode.id);
+      }
+
+      const invNode = gdbNodes.find(n => n.id === 'inv_' + invName);
+      if (invNode) {
+        const already = gdbEdges.find(e =>
+          (e.from === invNode.id && e.to === node.id) ||
+          (e.to === invNode.id && e.from === node.id)
+        );
+        if (!already) {
+          const row = allData.find(r => r['Investor Name'] === invName && r['Share Code'] === node.fullLabel);
+          if (row) {
+            const isFeb = row['Date'] === febDate;
+            gdbEdges.push({
+              from: invNode.id, to: node.id,
+              pct: parseFloat(row['Percentage']) || 0, isFeb,
+              color: isFeb ? '#00d4aa' : '#8b7fff',
+              expandedBy: node.id
+            });
+          }
+        }
+      }
+    });
+  }
+}
+
+function collapseNode(node) {
+  // Remove nodes that were expanded BY this node and have no other parent in graph
+  const toRemove = new Set();
+  gdbNodes.forEach(n => {
+    if (n.expandedBy === node.id) {
+      // Only remove if no other node references it as anchor (i.e. not manually added)
+      toRemove.add(n.id);
+    }
+  });
+  // But keep nodes that have been further expanded themselves or expanded by something else
+  toRemove.forEach(id => {
+    const hasOwnChildren = gdbNodes.some(n => n.expandedBy === id);
+    const expandedByOther = gdbNodes.find(n => n.id === id && n.expandedBy !== node.id);
+    if (hasOwnChildren || expandedByOther) toRemove.delete(id);
+  });
+
+  gdbNodes = gdbNodes.filter(n => !toRemove.has(n.id));
+  gdbEdges = gdbEdges.filter(e => !toRemove.has(e.from) && !toRemove.has(e.to) && e.expandedBy !== node.id);
+  toRemove.forEach(id => gdbExpandedNodeIds.delete(id));
+}
+
+function showGDBNodeInfo(node) {
+  const panel = document.getElementById('gdbNodeInfo');
+  panel.style.display = 'block';
+
+  const isInvestor = node.type === 'investor';
+  const isHybrid = node.type === 'hybrid';
+  const color = isInvestor ? 'var(--amber)' : isHybrid ? '#e8e6e0' : 'var(--teal)';
+  const icon = isInvestor ? 'INV' : isHybrid ? 'HYB' : 'STK';
+
+  document.getElementById('gdbNeoBadge').style.background = color;
+  document.getElementById('gdbNeoBadge').style.color = isHybrid ? '#1a1c24' : '#000';
+  document.getElementById('gdbNeoBadge').textContent = icon;
+  document.getElementById('gdbNeoTitle').textContent = node.fullLabel;
+
+  const body = document.getElementById('gdbNeoBody');
+
+  if (isHybrid) {
+    // Show both sides: as company (who invests in this share) and as investor (what it owns)
+    const ownedBy = {};
+    allData.forEach(r => {
+      if (r['Share Code'] !== node.label) return;
+      const inv = r['Investor Name'];
+      if (!ownedBy[inv]) ownedBy[inv] = { dates: {} };
+      ownedBy[inv].dates[r['Date']] = parseFloat(r['Percentage']) || 0;
+    });
+    const investedIn = {};
+    if (node.invName) {
+      allData.forEach(r => {
+        if (r['Investor Name'] !== node.invName) return;
+        const sh = r['Share Code'];
+        if (sh === node.label) return; // skip self
+        if (!investedIn[sh]) investedIn[sh] = { issuer: r['Issuer Name'] || sh, dates: {} };
+        investedIn[sh].dates[r['Date']] = parseFloat(r['Percentage']) || 0;
+      });
+    }
+    document.getElementById('gdbNeoMeta').textContent = `HYBRID · ${Object.keys(ownedBy).length} pemegang · ${Object.keys(investedIn).length} investasi`;
+
+    let html = `<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;font-family:var(--mono);margin-bottom:8px;">Dimiliki oleh</div>`;
+    Object.entries(ownedBy).slice(0,8).forEach(([inv, d]) => {
+      const maxPct = Math.max(...Object.values(d.dates));
+      html += `<div class="gdb-result-item" onclick="gdbFocusName('${inv.replace(/'/g,"\\'")}')">
+        <div class="gdb-ri-dot investor"></div>
+        <div class="gdb-ri-name">${inv}</div>
+        <span class="gdb-ri-badge">${maxPct.toFixed(2)}%</span>
+      </div>`;
+    });
+    if (Object.keys(investedIn).length) {
+      html += `<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;font-family:var(--mono);margin:12px 0 8px;">Juga berinvestasi di</div>`;
+      Object.entries(investedIn).slice(0,8).forEach(([sh, d]) => {
+        const maxPct = Math.max(...Object.values(d.dates));
+        html += `<div class="gdb-result-item" onclick="gdbFocusShare('${sh}')">
+          <div class="gdb-ri-dot company"></div>
+          <div class="gdb-ri-name">${sh} <span style="color:var(--muted);font-size:10px;">${d.issuer}</span></div>
+          <span class="gdb-ri-badge">${maxPct.toFixed(2)}%</span>
+        </div>`;
+      });
+    }
+    body.innerHTML = html;
+
+  } else if (isInvestor) {
+    const owned = {};
+    allData.forEach(r => {
+      if (r['Investor Name'] !== node.fullLabel) return;
+      const sh = r['Share Code'];
+      if (!owned[sh]) owned[sh] = { issuer: r['Issuer Name'] || sh, dates: {} };
+      owned[sh].dates[r['Date']] = parseFloat(r['Percentage']) || 0;
+    });
+    const shares = Object.entries(owned).sort((a,b) =>
+      Math.max(...Object.values(b[1].dates)) - Math.max(...Object.values(a[1].dates))
+    );
+    document.getElementById('gdbNeoMeta').textContent = `INVESTOR · ${shares.length} saham · klik lagi untuk collapse`;
+
+    let html = `<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;font-family:var(--mono);margin-bottom:10px;">Saham yang dimiliki (node baru muncul di graph)</div>`;
+    html += `<div style="display:flex;flex-direction:column;gap:6px;">`;
+    shares.forEach(([code, info]) => {
+      const dateEntries = Object.entries(info.dates).sort();
+      const latest = dateEntries[dateEntries.length - 1];
+      const prev = dateEntries.length > 1 ? dateEntries[dateEntries.length - 2] : null;
+      const diff = prev ? (latest[1] - prev[1]).toFixed(2) : null;
+      const diffHtml = diff === null ? '' :
+        parseFloat(diff) > 0 ? `<span style="font-size:10px;color:var(--teal);font-family:var(--mono);">▲ +${diff}%</span>` :
+        parseFloat(diff) < 0 ? `<span style="font-size:10px;color:var(--red);font-family:var(--mono);">▼ ${diff}%</span>` :
+        `<span style="font-size:10px;color:var(--muted);font-family:var(--mono);">— sama</span>`;
+      const inGraph = gdbNodes.find(n => n.id === 'comp_' + code);
+      html += `<div style="background:var(--surface2);border:0.5px solid ${inGraph ? 'var(--teal)' : 'var(--border)'};border-radius:9px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
+        <div style="width:32px;height:32px;border-radius:8px;background:rgba(0,212,170,.12);border:0.5px solid var(--teal);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <span style="font-size:9px;font-weight:700;color:var(--teal);font-family:var(--mono);">${code.slice(0,4)}</span>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;font-weight:700;color:var(--text);">${code}</div>
+          <div style="font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${info.issuer}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);font-family:var(--mono);">${latest[1].toFixed(2)}%</div>
+          ${diffHtml}
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+    body.innerHTML = html;
+
+  } else {
+    const owners = {};
+    allData.forEach(r => {
+      if (r['Share Code'] !== node.fullLabel) return;
+      const inv = r['Investor Name'];
+      if (!owners[inv]) owners[inv] = { dates: {} };
+      owners[inv].dates[r['Date']] = parseFloat(r['Percentage']) || 0;
+    });
+    const invList = Object.entries(owners).sort((a,b) =>
+      Math.max(...Object.values(b[1].dates)) - Math.max(...Object.values(a[1].dates))
+    );
+    document.getElementById('gdbNeoMeta').textContent = `KODE SAHAM · ${invList.length} investor · klik lagi untuk collapse`;
+
+    let html = `<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;font-family:var(--mono);margin-bottom:10px;">Pemilik saham ini (node baru muncul di graph)</div>`;
+    html += `<div style="display:flex;flex-direction:column;gap:6px;">`;
+    invList.forEach(([invName, info]) => {
+      const dateEntries = Object.entries(info.dates).sort();
+      const latest = dateEntries[dateEntries.length - 1];
+      const prev = dateEntries.length > 1 ? dateEntries[dateEntries.length - 2] : null;
+      const diff = prev ? (latest[1] - prev[1]).toFixed(2) : null;
+      const diffHtml = diff === null ? '' :
+        parseFloat(diff) > 0 ? `<span style="font-size:10px;color:var(--teal);font-family:var(--mono);">▲ +${diff}%</span>` :
+        parseFloat(diff) < 0 ? `<span style="font-size:10px;color:var(--red);font-family:var(--mono);">▼ ${diff}%</span>` :
+        `<span style="font-size:10px;color:var(--muted);font-family:var(--mono);">— sama</span>`;
+      const initials = invName.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+      const inGraph = gdbNodes.find(n => n.id === 'inv_' + invName);
+      html += `<div style="background:var(--surface2);border:0.5px solid ${inGraph ? 'var(--amber)' : 'var(--border)'};border-radius:9px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
+        <div style="width:32px;height:32px;border-radius:50%;background:rgba(245,166,35,.15);border:0.5px solid var(--amber);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <span style="font-size:10px;font-weight:700;color:var(--amber);">${initials}</span>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${invName}</div>
+          <div style="font-size:10px;color:var(--muted);">INVESTOR</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);font-family:var(--mono);">${latest[1].toFixed(2)}%</div>
+          ${diffHtml}
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+    body.innerHTML = html;
+  }
+}
+
+// Keep neoClick functions for panel clicks (still useful for navigating)
+
+
+
+// ===== GDB FILTER: TANGGAL =====
+function renderGDBDateChecklist(dates) {
+  // Only init if dates changed or first time
+  const container = document.getElementById('gdbDateChecklist');
+  if (!container) return;
+
+  // Get all available dates from allData
+  const allDates = dates || [...new Set(allData.map(r => r['Date']))].sort();
+
+  // Default: latest date only (if no active filter set yet)
+  if (gdbFilterDateSet.size === 0 && allDates.length > 0) {
+    gdbFilterDateSet.add(allDates[allDates.length - 1]);
+  }
+
+  container.innerHTML = allDates.map(d => {
+    const checked = gdbFilterDateSet.has(d);
+    const isLatest = d === allDates[allDates.length - 1];
+    const pillColor = isLatest ? 'var(--purple)' : 'var(--teal)';
+    const pillBg = isLatest ? 'rgba(139,127,255,.12)' : 'rgba(0,212,170,.12)';
+    return `<label style="display:flex;align-items:center;gap:8px;padding:7px 9px;background:var(--surface2);border:0.5px solid ${checked ? pillColor : 'var(--border)'};border-radius:8px;cursor:pointer;transition:border-color .15s;" id="gdbDateLabel_${CSS.escape(d)}">
+      <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleGDBDate('${d}')"
+        style="accent-color:${pillColor};width:13px;height:13px;flex-shrink:0;cursor:pointer;">
+      <span style="font-size:11px;font-family:var(--mono);color:var(--text);flex:1;">${d}</span>
+      ${isLatest ? '<span style="font-size:9px;background:'+pillBg+';color:'+pillColor+';border:0.5px solid '+pillColor+';border-radius:10px;padding:1px 6px;font-family:var(--mono);">terbaru</span>' : ''}
+    </label>`;
+  }).join('');
+}
+
+function toggleGDBDate(date) {
+  if (gdbFilterDateSet.has(date)) {
+    // Don't allow deselecting if it's the only one
+    if (gdbFilterDateSet.size === 1) {
+      // Re-check the checkbox
+      const allDates = [...new Set(allData.map(r => r['Date']))].sort();
+      renderGDBDateChecklist(allDates);
+      return;
+    }
+    gdbFilterDateSet.delete(date);
+  } else {
+    gdbFilterDateSet.add(date);
+  }
+  // Re-render labels to update border colors
+  const allDates = [...new Set(allData.map(r => r['Date']))].sort();
+  renderGDBDateChecklist(allDates);
+  buildGDBGraph();
+}
+
+// ===== GDB FILTER: INVESTOR / PERUSAHAAN =====
+function gdbSuggestFilterName(q) {
+  const dd = document.getElementById('gdbFilterNameDd');
+  if (!q || q.length < 1) { dd.classList.remove('open'); return; }
+  const lq = q.toLowerCase();
+  const allNames = [...new Set(allData.flatMap(r => [r['Investor Name'], r['Issuer Name']]))].filter(Boolean);
+  const results = allNames.filter(n => n.toLowerCase().includes(lq) && !gdbFilterNameSet.has(n)).slice(0, 8);
+  if (!results.length) { dd.classList.remove('open'); return; }
+  dd.innerHTML = results.map(n => `<div class="gdb-dd-item" onmousedown="addGDBNameTag('${n.replace(/'/g,"\\'")}')"><span>${n}</span></div>`).join('');
+  dd.classList.add('open');
+}
+
+function addGDBNameTag(name) {
+  gdbFilterNameSet.add(name);
+  document.getElementById('gdbFilterName').value = '';
+  document.getElementById('gdbFilterNameDd').classList.remove('open');
+  renderGDBNameTags();
+  buildGDBGraph();
+  document.getElementById('gdbFilterNameInfo').textContent = `Filter aktif: ${gdbFilterNameSet.size} nama.`;
+}
+
+function removeGDBNameTag(name) {
+  gdbFilterNameSet.delete(name);
+  renderGDBNameTags();
+}
+
+function renderGDBNameTags() {
+  const container = document.getElementById('gdbFilterNameTags');
+  container.innerHTML = [...gdbFilterNameSet].map(n => `
+    <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(0,212,170,.15);border:0.5px solid var(--teal);border-radius:20px;padding:2px 8px;font-size:10px;font-family:var(--mono);color:var(--teal);">
+      ${n} <span style="cursor:pointer;font-size:12px;color:var(--muted);" onmousedown="removeGDBNameTag('${n.replace(/'/g,"\\'")}')">×</span>
+    </span>`).join('');
+}
+
+
+
+// ===== GDB FILTER: KODE SAHAM =====
+function gdbSuggestFilterShare(q) {
+  const dd = document.getElementById('gdbFilterShareDd');
+  if (!q || q.length < 1) { dd.classList.remove('open'); return; }
+  const lq = q.toLowerCase();
+  const allCodes = [...new Set(allData.map(r => r['Share Code']))].filter(Boolean);
+  const results = allCodes.filter(c => c.toLowerCase().includes(lq) && !gdbFilterShareSet.has(c)).slice(0, 8);
+  if (!results.length) { dd.classList.remove('open'); return; }
+  dd.innerHTML = results.map(c => `<div class="gdb-dd-item" onmousedown="addGDBShareTag('${c}')"><span>${c}</span></div>`).join('');
+  dd.classList.add('open');
+}
+
+function addGDBShareTag(code) {
+  gdbFilterShareSet.add(code);
+  document.getElementById('gdbFilterShare').value = '';
+  document.getElementById('gdbFilterShareDd').classList.remove('open');
+  renderGDBShareTags();
+}
+
+function removeGDBShareTag(code) {
+  gdbFilterShareSet.delete(code);
+  renderGDBShareTags();
+}
+
+function renderGDBShareTags() {
+  const container = document.getElementById('gdbFilterShareTags');
+  container.innerHTML = [...gdbFilterShareSet].map(c => `
+    <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(139,127,255,.15);border:0.5px solid var(--purple);border-radius:20px;padding:2px 8px;font-size:10px;font-family:var(--mono);color:var(--purple);">
+      ${c} <span style="cursor:pointer;font-size:12px;color:var(--muted);" onmousedown="removeGDBShareTag('${c}')">×</span>
+    </span>`).join('');
+}
+
+
+
+function setGraphMode(mode) {
+  gdbGraphMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('mode' + mode.charAt(0).toUpperCase() + mode.slice(1).replace('investors','Inv').replace('companies','Comp')).classList.add('active');
+}
+
+function redrawGDB() {} // called by checkboxes, loop auto-redraws
+
+function togglePhysics() { gdbPhysics = document.getElementById('physicsEnabled').checked; }
+
+function gdbZoom(factor) {
+  gdbZoomLevel = Math.max(0.2, Math.min(4, gdbZoomLevel * factor));
+}
+
+function gdbFitView() {
+  if (!gdbNodes.length) return;
+  const canvas = document.getElementById('gdbCanvas');
+  const W = canvas.width, H = canvas.height;
+  const xs = gdbNodes.map(n => n.x), ys = gdbNodes.map(n => n.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const rangeX = maxX - minX + 80, rangeY = maxY - minY + 80;
+  gdbZoomLevel = Math.min(W / rangeX, H / rangeY, 2);
+  gdbOffsetX = W/2 - ((minX + maxX) / 2) * gdbZoomLevel;
+  gdbOffsetY = H/2 - ((minY + maxY) / 2) * gdbZoomLevel;
+}
+
+function resetGDBLayout() {
+  buildGDBGraph();
+}
+
+function clearGDBSelection() {
+  gdbSelectedNode = null;
+  gdbHighlightedNodeIds = new Set();
+  gdbPathNodeIds = new Set();
+  gdbCoInvNodeIds = new Set();
+  document.getElementById('gdbStatus').textContent = '— node dipilih';
+  document.getElementById('gdbNodeInfo').style.display = 'none';
+}
+</script>
