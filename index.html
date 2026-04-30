@@ -3188,7 +3188,8 @@ async function loadCSV() {
     if (!response.ok) throw new Error('CSV tidak ditemukan');
 
     const text = await response.text();
-    const rows = text.trim().split('\n').map(r => r.split(','));
+    const delimiter = text.includes(';') ? ';' : ',';
+    const rows = text.trim().split('\n').map(r => r.split(delimiter));
 
     const headers = rows[0];
     const data = rows.slice(1).map(r => {
